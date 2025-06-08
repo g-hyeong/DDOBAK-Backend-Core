@@ -12,7 +12,7 @@ alwaysApply: false
 
 ## 📋 **현재 프로젝트 상태** (2024년 6월 기준)
 ```gradle
-// 현재 build.gradle 상태 (skeleton 기준)
+// 현재 build.gradle 상태 (common 모듈 완성 기준)
 plugins {
     id 'java'
     id 'org.springframework.boot' version '3.5.0'
@@ -20,11 +20,34 @@ plugins {
 }
 
 dependencies {
+    // ✅ 추가 완료된 의존성들
     implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-web'           // REST API
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'     // JPA
+    implementation 'org.springframework.boot:spring-boot-starter-validation'   // Bean Validation
+    implementation 'org.springframework.boot:spring-boot-starter-security'     // Spring Security
+    
+    // JSON 처리 향상
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    
+    // Lombok (생산성)
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    
+    // Database (개발용)
+    runtimeOnly 'com.h2database:h2'
+    
+    // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 ```
+
+## 🎉 **완성된 모듈**
+- ✅ **common/exception**: ErrorCode(4xxx, 5xxx), BusinessException, GlobalExceptionHandler + 4개 구체 예외
+- ✅ **common/response**: ApiResponse, SuccessCode(2xxx), PageResponse
+- ✅ **빌드 성공**: 모든 클래스 정상 컴파일
 
 ## 🎯 **단계별 의존성 추가 가이드**
 
