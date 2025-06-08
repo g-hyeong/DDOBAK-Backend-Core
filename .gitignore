@@ -1,0 +1,92 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### macOS ###
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+### Windows ###
+Desktop.ini
+$RECYCLE.BIN/
+
+### Linux ###
+*~
+
+### Logs ###
+logs/
+*.log
+*.log.*
+
+### Environment ###
+.env
+.env.local
+.env.dev
+.env.prod
+application-*.properties
+application-*.yml
+
+### Temporary files ###
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+### Coverage reports ###
+coverage/
+*.coverage
+.nyc_output
+
+### Database ###
+*.db
+*.sqlite
+*.sqlite3
+
+### Package files ###
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+!gradle/wrapper/gradle-wrapper.jar

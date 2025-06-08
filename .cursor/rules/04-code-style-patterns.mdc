@@ -1,0 +1,387 @@
+---
+description: Clean Code 원칙, 명명 규칙, 디자인 패턴, 레이어별 코딩 가이드, 로깅 전략과 코드 품질 기준을 제공합니다.
+globs: 
+alwaysApply: false
+---
+# 🎨 코드 스타일 및 클린 코드 규칙
+
+## 🎯 클린 코드 핵심 원칙
+
+### 1. 명명 규칙 (Naming Convention)
+- **클래스**: `PascalCase` (UserService, AuthController)
+- **메서드/변수**: `camelCase` (getUserById, authToken)
+- **상수**: `UPPER_SNAKE_CASE` (MAX_RETRY_COUNT, JWT_EXPIRATION)
+- **패키지**: `lowercase` (user, auth, common)
+- **Boolean**: `is/has/can` 접두사 (isValid, hasPermission)
+
+### 2. 메서드 작성 원칙
+- **단일 책임**: 하나의 메서드는 하나의 일만
+- **길이 제한**: 20라인 이내 (복잡한 로직은 분할)
+- **매개변수**: 3개 이하 (초과 시 DTO/Builder 패턴 사용)
+- **의미있는 이름**: 메서드명으로 기능 추측 가능
+
+```java
+// ✅ 좋은 예
+public UserResponse createUser(CreateUserRequest request) {
+    validateUserRequest(request);
+    User user = buildUserFromRequest(request);
+    User savedUser = userRepository.save(user);
+    return UserResponse.from(savedUser);
+}
+
+// ❌ 나쁜 예
+public UserResponse doSomething(String a, String b, int c, boolean d) {
+    // 50줄의 복잡한 로직...
+}
+```
+
+## 🏗️ 디자인 패턴 적용 가이드
+
+### 1. Builder 패턴 (복잡한 객체 생성)
+```java
+@Entity
+@Builder
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(nullable = false, unique = true)
+    private String email;
+    
+    @Column(nullable = false)
+    private String name;
+    
+    @Enumerated(EnumType.STRING)
+    private UserStatus status;
+    
+    // 비즈니스 메서드
+    public void activate() {
+        this.status = UserStatus.ACTIVE;
+    }
+    
+    public boolean isActive() {
+        return this.status == UserStatus.ACTIVE;
+    }
+}
+```
+
+### 2. Factory 패턴 (객체 생성 로직 분리)
+```java
+@Component
+public class AuthTokenFactory {
+    
+    private final JwtUtils jwtUtils;
+    
+    public AuthTokenFactory(JwtUtils jwtUtils) {
+        this.jwtUtils = jwtUtils;
+    }
+    
+    public AuthToken createAccessToken(User user) {
+        return AuthToken.builder()
+            .token(jwtUtils.generateAccessToken(user))
+            .type(TokenType.ACCESS)
+            .expiresAt(calculateAccessTokenExpiry())
+            .userId(user.getId())
+            .build();
+    }
+    
+    public AuthToken createRefreshToken(User user) {
+        return AuthToken.builder()
+            .token(jwtUtils.generateRefreshToken(user))
+            .type(TokenType.REFRESH)
+            .expiresAt(calculateRefreshTokenExpiry())
+            .userId(user.getId())
+            .build();
+    }
+}
+```
+
+### 3. Strategy 패턴 (OAuth 클라이언트)
+```java
+public interface OAuthClient {
+    String getProviderName();
+    OAuthUserInfo getUserInfo(String accessToken);
+    boolean supports(OAuthProvider provider);
+}
+
+@Component
+public class GoogleOAuthClient implements OAuthClient {
+    
+    @Override
+    public String getProviderName() {
+        return "google";
+    }
+    
+    @Override
+    public OAuthUserInfo getUserInfo(String accessToken) {
+        // Google API 호출 로직
+    }
+    
+    @Override
+    public boolean supports(OAuthProvider provider) {
+        return provider == OAuthProvider.GOOGLE;
+    }
+}
+
+@Service
+public class OAuthService {
+    
+    private final List<OAuthClient> oauthClients;
+    
+    public OAuthService(List<OAuthClient> oauthClients) {
+        this.oauthClients = oauthClients;
+    }
+    
+    public OAuthUserInfo getUserInfo(OAuthProvider provider, String accessToken) {
+        OAuthClient client = oauthClients.stream()
+            .filter(c -> c.supports(provider))
+            .findFirst()
+            .orElseThrow(() -> new UnsupportedOAuthProviderException(provider));
+        
+        return client.getUserInfo(accessToken);
+    }
+}
+```
+
+## 📝 레이어별 코딩 가이드
+
+### Controller 레이어
+```java
+@RestController
+@RequestMapping("/api/v1/users")
+@RequiredArgsConstructor
+@Slf4j
+public class UserController {
+    
+    private final UserService userService;
+    
+    @PostMapping
+    public ResponseEntity<ApiResponse<UserResponse>> createUser(
+            @Valid @RequestBody CreateUserRequest request) {
+        
+        log.info("Creating user with email: {}", request.getEmail());
+        
+        UserResponse response = userService.createUser(request);
+        
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.success(response));
+    }
+    
+    @GetMapping("/{userId}")
+    public ResponseEntity<ApiResponse<UserResponse>> getUser(
+            @PathVariable Long userId) {
+        
+        UserResponse response = userService.getUserById(userId);
+        
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+}
+```
+
+### Service 레이어
+```java
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+@Slf4j
+public class UserService {
+    
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    
+    @Transactional
+    public UserResponse createUser(CreateUserRequest request) {
+        validateEmailNotExists(request.getEmail());
+        
+        User user = User.builder()
+            .email(request.getEmail())
+            .name(request.getName())
+            .password(passwordEncoder.encode(request.getPassword()))
+            .status(UserStatus.ACTIVE)
+            .build();
+        
+        User savedUser = userRepository.save(user);
+        
+        log.info("User created successfully with ID: {}", savedUser.getId());
+        
+        return UserResponse.from(savedUser);
+    }
+    
+    public UserResponse getUserById(Long userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new UserNotFoundException(userId));
+        
+        return UserResponse.from(user);
+    }
+    
+    private void validateEmailNotExists(String email) {
+        if (userRepository.existsByEmail(email)) {
+            throw new DuplicateEmailException(email);
+        }
+    }
+}
+```
+
+### Repository 레이어
+```java
+@Repository
+public interface UserRepository extends JpaRepository<User, Long> {
+    
+    Optional<User> findByEmail(String email);
+    
+    boolean existsByEmail(String email);
+    
+    @Query("SELECT u FROM User u WHERE u.status = :status AND u.createdAt >= :since")
+    List<User> findActiveUsersSince(@Param("status") UserStatus status, 
+                                   @Param("since") LocalDateTime since);
+}
+```
+
+## 🔧 Lombok 활용 가이드
+
+### 권장 어노테이션 조합
+```java
+// Entity 클래스
+@Entity
+@Table(name = "users")
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+
+// DTO 클래스
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+
+// Service/Component 클래스
+@Service
+@RequiredArgsConstructor
+@Slf4j
+```
+
+## 🚦 예외 처리 패턴
+
+### 커스텀 예외 정의
+```java
+public class UserNotFoundException extends BusinessException {
+    
+    public UserNotFoundException(Long userId) {
+        super(ErrorCode.USER_NOT_FOUND, "User not found with ID: " + userId);
+    }
+}
+
+public class DuplicateEmailException extends BusinessException {
+    
+    public DuplicateEmailException(String email) {
+        super(ErrorCode.DUPLICATE_EMAIL, "Email already exists: " + email);
+    }
+}
+```
+
+### 글로벌 예외 처리
+```java
+@RestControllerAdvice
+@Slf4j
+public class GlobalExceptionHandler {
+    
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
+        log.warn("Business exception occurred: {}", e.getMessage());
+        
+        return ResponseEntity.status(e.getErrorCode().getHttpStatus())
+            .body(ApiResponse.error(e.getErrorCode(), e.getMessage()));
+    }
+    
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidationException(
+            MethodArgumentNotValidException e) {
+        
+        String message = e.getBindingResult().getFieldErrors().stream()
+            .map(error -> error.getField() + ": " + error.getDefaultMessage())
+            .collect(Collectors.joining(", "));
+        
+        log.warn("Validation error: {}", message);
+        
+        return ResponseEntity.badRequest()
+            .body(ApiResponse.error(ErrorCode.INVALID_INPUT, message));
+    }
+}
+```
+
+## 🔍 로깅 가이드
+
+### 로깅 레벨 및 용도
+```java
+@Service
+@Slf4j
+public class UserService {
+    
+    public void someMethod() {
+        // DEBUG: 개발 디버깅용
+        log.debug("Processing user data: {}", userData);
+        
+        // INFO: 중요한 비즈니스 플로우
+        log.info("User {} successfully created", user.getEmail());
+        
+        // WARN: 예상 가능한 예외 상황
+        log.warn("Rate limit exceeded for user: {}", userId);
+        
+        // ERROR: 예상치 못한 시스템 오류
+        log.error("Failed to process payment for user: {}", userId, exception);
+    }
+}
+```
+
+## 🚫 안티 패턴 (금지 사항)
+
+### 코드 작성 시 피해야 할 것들
+```java
+// ❌ 매직 넘버
+if (user.getAge() > 18) { ... }
+
+// ✅ 상수 사용
+private static final int ADULT_AGE = 18;
+if (user.getAge() > ADULT_AGE) { ... }
+
+// ❌ 긴 메서드 체인
+user.getProfile().getAddress().getCountry().getName().toUpperCase()
+
+// ✅ 중간 변수 사용
+Profile profile = user.getProfile();
+Address address = profile.getAddress();
+Country country = address.getCountry();
+String countryName = country.getName().toUpperCase();
+
+// ❌ 예외 무시
+try {
+    // 위험한 작업
+} catch (Exception e) {
+    // 아무것도 하지 않음
+}
+
+// ✅ 적절한 예외 처리
+try {
+    // 위험한 작업
+} catch (SpecificException e) {
+    log.error("Specific error occurred", e);
+    throw new ServiceException("Operation failed", e);
+}
+```
+
+## 📚 코드 리뷰 체크리스트
+
+### 필수 확인 사항
+- [ ] 메서드명이 기능을 명확히 표현하는가?
+- [ ] 하나의 메서드가 하나의 책임만 가지는가?
+- [ ] 매직 넘버나 하드코딩된 값이 없는가?
+- [ ] 예외 처리가 적절한가?
+- [ ] 로깅이 적절한 레벨로 작성되었는가?
+- [ ] 테스트 코드가 작성되었는가?
+- [ ] 문서화(주석)가 필요한 부분에 작성되었는가?
