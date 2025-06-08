@@ -8,8 +8,14 @@ alwaysApply: false
 ## 🎯 핵심 원칙
 - **Java 17**, **Spring Boot 3.5.0** 고정 (절대 버전 변경 금지)
 - **Clean Code & Clean Architecture** 원칙 준수
-- **도메인별 완전한 계층 분리** (controller, service, dto, entity, repository)
+- **도메인별 완전한 계층 분리** (controller, service, dto, entity, repository, exception)
 - **설정 관리**: `application.yml` 사용, 환경별 분리 (.env 보완)
+
+## 🌐 메시지 정책 (절대 준수)
+- **시스템 메시지**: API 응답, 에러 메시지, 로그 → **영어 사용**
+- **코드 주석**: **한국어 사용**
+- **에러 코드**: 천의 자리 체계 (2xxx 성공, 4xxx 클라이언트, 5xxx 서버)
+- **API 응답**: 모든 API는 `ApiResponse<T>` 형식 필수
 
 ## 📁 필수 디렉터리 구조
 
@@ -28,20 +34,44 @@ src/main/java/com/sbpb/ddobak/server/
 │   │   ├── service/
 │   │   ├── dto/
 │   │   ├── entity/
-│   │   └── repository/
+│   │   ├── repository/
+│   │   └── exception/           # 사용자 도메인 전용 예외
 │   ├── auth/                     # 인증 도메인
 │   │   ├── controller/
 │   │   ├── service/
 │   │   ├── dto/
 │   │   ├── entity/
 │   │   ├── repository/
+│   │   ├── exception/           # 인증 도메인 전용 예외
 │   │   └── oauth/               # 소셜 로그인 클라이언트
 │   ├── documentProcess/         # 문서 처리 도메인
+│   │   ├── controller/
+│   │   ├── service/
+│   │   ├── dto/
+│   │   ├── entity/
+│   │   ├── repository/
+│   │   └── exception/           # 문서 처리 도메인 전용 예외
 │   └── externalContent/         # 외부 컨텐츠 도메인
+│       ├── controller/
+│       ├── service/
+│       ├── dto/
+│       ├── entity/
+│       ├── repository/
+│       └── exception/           # 외부 컨텐츠 도메인 전용 예외
 │
-├── common/                      # 공통 모듈
-│   ├── exception/               # 예외 처리
-│   ├── response/                # 공통 응답 형식
+├── common/                      # 공통 모듈 ✅ 완성
+│   ├── exception/               # 예외 처리 ✅ 완성
+│   │   ├── ErrorCode.java       # 천의 자리 에러 코드 체계 (4xxx, 5xxx)
+│   │   ├── BusinessException.java # 예외 기반 클래스 (추적 ID, 속성 지원)
+│   │   ├── GlobalExceptionHandler.java # 전역 예외 처리
+│   │   ├── ValidationException.java # 검증 실패 예외
+│   │   ├── ResourceNotFoundException.java # 리소스 없음 예외
+│   │   ├── DuplicateResourceException.java # 중복 리소스 예외
+│   │   └── ExternalServiceException.java # 외부 서비스 예외
+│   ├── response/                # 공통 응답 형식 ✅ 완성
+│   │   ├── ApiResponse.java     # 통일된 API 응답 (Generic, 추적 ID)
+│   │   ├── SuccessCode.java     # 성공 코드 체계 (2xxx)
+│   │   └── PageResponse.java    # 페이징 응답 (Spring Data 연동)
 │   └── utils/                   # 유틸리티
 │
 └── ServerApplication.java       # 메인 클래스

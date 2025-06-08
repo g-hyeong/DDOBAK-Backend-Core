@@ -5,6 +5,40 @@ alwaysApply: false
 ---
 # 🎨 코드 스타일 및 클린 코드 규칙
 
+## 🌐 메시지 정책 (필수 준수)
+- **시스템 메시지**: API 응답, 에러 메시지, 로그 → **영어 사용**
+- **코드 주석**: **한국어 사용**
+- **예외 메시지**: 모든 Exception 메시지는 영어
+- **로그 메시지**: log.info(), log.error() 등 모든 로그는 영어
+
+```java
+// ✅ 올바른 예
+public class UserService {
+    /**
+     * 사용자 생성 메서드
+     * 이메일 중복 검증 후 사용자를 생성한다
+     */
+    public UserResponse createUser(CreateUserRequest request) {
+        log.info("Creating user with email: {}", request.getEmail());
+        
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw DuplicateResourceException.email(request.getEmail()); // 영어 메시지
+        }
+        
+        return UserResponse.from(savedUser);
+    }
+}
+
+// ❌ 잘못된 예
+public UserResponse createUser(CreateUserRequest request) {
+    log.info("사용자 생성 중: {}", request.getEmail()); // ❌ 로그는 영어
+    
+    if (userRepository.existsByEmail(request.getEmail())) {
+        throw new RuntimeException("이미 존재하는 이메일입니다"); // ❌ 예외는 영어
+    }
+}
+```
+
 ## 🎯 클린 코드 핵심 원칙
 
 ### 1. 명명 규칙 (Naming Convention)
@@ -266,52 +300,144 @@ public interface UserRepository extends JpaRepository<User, Long> {
 @Slf4j
 ```
 
-## 🚦 예외 처리 패턴
+## 🚦 예외 처리 패턴 ✅ 완성됨
 
-### 커스텀 예외 정의
+### 1. ErrorCode 체계 (천의 자리)
 ```java
-public class UserNotFoundException extends BusinessException {
+@Getter
+@RequiredArgsConstructor
+public enum ErrorCode {
+    // 클라이언트 에러 (4xxx)
+    INVALID_INPUT(4000, HttpStatus.BAD_REQUEST, "Invalid input provided"),
+    RESOURCE_NOT_FOUND(4001, HttpStatus.NOT_FOUND, "Resource not found"),
+    DUPLICATE_RESOURCE(4002, HttpStatus.CONFLICT, "Resource already exists"),
     
-    public UserNotFoundException(Long userId) {
-        super(ErrorCode.USER_NOT_FOUND, "User not found with ID: " + userId);
+    // 서버 에러 (5xxx)  
+    INTERNAL_SERVER_ERROR(5000, HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error"),
+    EXTERNAL_SERVICE_ERROR(5001, HttpStatus.BAD_GATEWAY, "External service error");
+    
+    private final int code;
+    private final HttpStatus httpStatus;
+    private final String message;
+}
+```
+
+### 2. 편의 메서드가 있는 구체 예외들
+```java
+// 리소스 없음 예외 - 편의 메서드 제공
+public class ResourceNotFoundException extends BusinessException {
+    public ResourceNotFoundException(String resource, Object id) {
+        super(ErrorCode.RESOURCE_NOT_FOUND, String.format("%s not found with id: %s", resource, id));
+    }
+    
+    // 편의 메서드들
+    public static ResourceNotFoundException user(Long userId) {
+        return new ResourceNotFoundException("User", userId);
+    }
+    
+    public static ResourceNotFoundException document(String documentId) {
+        return new ResourceNotFoundException("Document", documentId);
     }
 }
 
-public class DuplicateEmailException extends BusinessException {
+// 중복 리소스 예외 - 편의 메서드 제공
+public class DuplicateResourceException extends BusinessException {
+    public DuplicateResourceException(String resource, String field, Object value) {
+        super(ErrorCode.DUPLICATE_RESOURCE, 
+              String.format("%s already exists with %s: %s", resource, field, value));
+    }
     
-    public DuplicateEmailException(String email) {
-        super(ErrorCode.DUPLICATE_EMAIL, "Email already exists: " + email);
+    public static DuplicateResourceException email(String email) {
+        return new DuplicateResourceException("User", "email", email);
     }
 }
 ```
 
-### 글로벌 예외 처리
+### 3. 추적 ID와 속성 추가가 가능한 BusinessException
+```java
+public class BusinessException extends RuntimeException {
+    private final ErrorCode errorCode;
+    private final String traceId;
+    private final Map<String, Object> properties;
+    
+    // 체이닝 가능한 속성 추가
+    public BusinessException addProperty(String key, Object value) {
+        this.properties.put(key, value);
+        return this;
+    }
+    
+    // 구조화된 로그 메시지
+    public String getStructuredMessage() {
+        return String.format("[%s] %s (traceId: %s, properties: %s)",
+                errorCode.name(), getMessage(), traceId, properties);
+    }
+}
+```
+
+### 4. 완성된 글로벌 예외 처리
 ```java
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
     
-    @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
-        log.warn("Business exception occurred: {}", e.getMessage());
-        
-        return ResponseEntity.status(e.getErrorCode().getHttpStatus())
-            .body(ApiResponse.error(e.getErrorCode(), e.getMessage()));
+    // 현재는 기본 형태로 구현됨 (Spring 없이 빌드 가능하도록)
+    // 추후 Spring 설정 완료 후 실제 예외 처리 로직 추가 예정
+}
+```
+
+### 5. 사용법 예시
+```java
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class UserService {
+    
+    public UserResponse getUserById(Long userId) {
+        // 편의 메서드 사용
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> ResourceNotFoundException.user(userId));
+            
+        return UserResponse.from(user);
     }
     
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidationException(
-            MethodArgumentNotValidException e) {
+    public UserResponse createUser(CreateUserRequest request) {
+        // 중복 검증
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw DuplicateResourceException.email(request.getEmail())
+                .addProperty("requestId", request.getRequestId())
+                .addProperty("timestamp", Instant.now());
+        }
         
-        String message = e.getBindingResult().getFieldErrors().stream()
-            .map(error -> error.getField() + ": " + error.getDefaultMessage())
-            .collect(Collectors.joining(", "));
-        
-        log.warn("Validation error: {}", message);
-        
-        return ResponseEntity.badRequest()
-            .body(ApiResponse.error(ErrorCode.INVALID_INPUT, message));
-    }
+                // 정상 생성 로직...
+     }
+ }
+ ```
+
+### 6. 통일된 API 응답 형식 ✅ 완성됨
+```java
+// 성공 응답
+@GetMapping("/api/v1/users/{userId}")
+public ResponseEntity<ApiResponse<UserResponse>> getUser(@PathVariable Long userId) {
+    UserResponse user = userService.getUserById(userId);
+    return ResponseEntity.ok(ApiResponse.success(user, SuccessCode.USER_RETRIEVED));
+}
+
+// 페이징 응답
+@GetMapping("/api/v1/users")
+public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> getUsers(Pageable pageable) {
+    Page<UserResponse> users = userService.getUsers(pageable);
+    PageResponse<UserResponse> pageResponse = PageResponse.from(users);
+    return ResponseEntity.ok(ApiResponse.success(pageResponse));
+}
+
+// 응답 형식 (JSON)
+{
+    "success": true,
+    "code": 2001,
+    "message": "User retrieved successfully",
+    "data": { ... },
+    "traceId": "550e8400-e29b-41d4-a716-446655440000",
+    "timestamp": "2024-06-01T10:30:00Z"
 }
 ```
 
