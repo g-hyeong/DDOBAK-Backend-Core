@@ -72,3 +72,17 @@ docs: README 업데이트
 
 ### 🎯 Cursor Rules
 프로젝트의 코딩 규칙은 `.cursor/rules/` 폴더에 있습니다:
+
+### 📖 문서 구조
+```
+docs/
+├── api-development-guide.md  # API 개발 가이드 (Response/Exception 처리)
+└── (추후 추가 예정...)
+```
+
+## 📚 개발 가이드
+
+### 🔧 API 개발 시 참고사항
+- **Response/Exception 처리**: [API 개발 가이드](docs/api-development-guide.md) 참고
+- **Common 모듈 활용**: `ApiResponse<T>`, 예외 클래스들 필수 사용
+- **에러 코드 체계**: 2xxx(성공), 4xxx(클라이언트), 5xxx(서버) 분류 준수
