@@ -74,6 +74,11 @@ logging:
     com.sbpb.ddobak: debug
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+aws:
+  region: ap-northeast-2
+  lambda:
+    function-name: your-lambda-function
 ```
 
 ### 📌 2단계: 로컬 개발 환경 (application-local.yml)
@@ -296,6 +301,7 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret
 # AWS_SECRET_ACCESS_KEY=your_secret_key
 # AWS_REGION=ap-northeast-2
 # AWS_S3_BUCKET=ddobak-local-bucket
+# AWS_LAMBDA_FUNCTION=your-lambda-function
 
 # External APIs
 EXTERNAL_API_BASE_URL=https://api.external-service.com

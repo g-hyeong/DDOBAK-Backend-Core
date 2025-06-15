@@ -111,11 +111,15 @@ dependencies {
 ### 4️⃣ **운영 환경 준비** (AWS + 모니터링)
 ```gradle
 dependencies {
-    // AWS SDK v2
+    // AWS SDK v2 (Lambda 호출용)
+    implementation platform('software.amazon.awssdk:bom:2.25.62')
+    implementation 'software.amazon.awssdk:lambda'
+
+    // AWS Spring Cloud (S3, SQS 등)
     implementation platform('io.awspring.cloud:spring-cloud-aws-dependencies:3.2.1')
     implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3'
     implementation 'io.awspring.cloud:spring-cloud-aws-starter-sqs'
-    
+
     // 운영 모니터링
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
@@ -170,6 +174,10 @@ dependencies {
     // 📌 Documentation
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
     
+    // 📌 AWS SDK v2 (Lambda)
+    implementation platform('software.amazon.awssdk:bom:2.25.62')
+    implementation 'software.amazon.awssdk:lambda'
+
     // 📌 AWS Services (프로덕션용)
     implementation platform('io.awspring.cloud:spring-cloud-aws-dependencies:3.2.1')
     implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3'
