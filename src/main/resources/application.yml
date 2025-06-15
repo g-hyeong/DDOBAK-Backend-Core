@@ -1,3 +1,8 @@
 spring:
   application:
-    name: main-server 
+    name: main-server
+
+aws:
+  region: ap-northeast-2
+  lambda:
+    function-name: your-lambda-function
