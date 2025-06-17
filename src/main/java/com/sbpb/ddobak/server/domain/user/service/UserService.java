@@ -1,6 +1,7 @@
 package com.sbpb.ddobak.server.domain.user.service;
 
 import com.sbpb.ddobak.server.common.exception.DuplicateResourceException;
+import com.sbpb.ddobak.server.common.utils.IdGenerator;
 import com.sbpb.ddobak.server.domain.user.dto.CreateUserRequest;
 import com.sbpb.ddobak.server.domain.user.dto.UserResponse;
 import com.sbpb.ddobak.server.domain.user.entity.User;
@@ -9,8 +10,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.UUID;
 
 /**
  * 사용자 서비스
@@ -24,7 +23,7 @@ public class UserService {
     private final UserRepository userRepository;
 
     /**
-     * 사용자 생성 (테스트용 간단 구현)
+     * 사용자 생성 (테스트용)
      */
     @Transactional
     public UserResponse createUser(CreateUserRequest request) {
@@ -37,7 +36,7 @@ public class UserService {
 
         // 사용자 생성
         User user = User.builder()
-            .id(UUID.randomUUID().toString())
+            .id(IdGenerator.generateUserId())
             .email(request.getEmail())
             .name(request.getName())
             .nickname(request.getNickname())
