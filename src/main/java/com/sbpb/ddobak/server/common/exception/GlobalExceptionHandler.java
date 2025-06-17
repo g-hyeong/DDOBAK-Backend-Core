@@ -61,8 +61,8 @@ public class GlobalExceptionHandler {
         log.warn("File upload size exceeded: {}", e.getMessage());
 
         return ResponseEntity
-            .status(ErrorCode.OCR_FILE_TOO_LARGE.getHttpStatus())
-            .body(ApiResponse.error(ErrorCode.OCR_FILE_TOO_LARGE, "File size exceeds the allowed limit"));
+            .status(ErrorCode.INVALID_INPUT.getHttpStatus())
+            .body(ApiResponse.error(ErrorCode.INVALID_INPUT, "File size exceeds the allowed limit"));
     }
 
     /**
