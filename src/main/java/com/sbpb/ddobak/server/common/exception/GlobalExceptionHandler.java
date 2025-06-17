@@ -1,6 +1,13 @@
 package com.sbpb.ddobak.server.common.exception;
 
 import com.sbpb.ddobak.server.common.response.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * 전역 예외 처리기
@@ -9,68 +16,77 @@ import com.sbpb.ddobak.server.common.response.ApiResponse;
  * 
  * 처리하는 예외 유형:
  * - 비즈니스 예외 (BusinessException)
+ * - 검증 예외 (Validation)
  * - 시스템 예외 (RuntimeException, Exception)
- * 
- * 참고: Spring Web 의존성 추가 후 @RestControllerAdvice와 @ExceptionHandler 사용 가능
  */
+@RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     /**
      * 비즈니스 예외 처리
      * 애플리케이션에서 의도적으로 발생시킨 예외들을 처리
      */
-    public ApiResponse<Void> handleBusinessException(BusinessException e) {
-        // WARN 레벨로 로깅 (비즈니스 로직상 예상 가능한 예외)
-        System.out.println("WARN: Business exception occurred - " + e.getLoggingMessage());
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
+        log.warn("Business exception occurred: {}", e.getLoggingMessage());
 
-        return ApiResponse.error(e.getErrorCode(), e.getMessage());
+        return ResponseEntity
+            .status(e.getErrorCode().getHttpStatus())
+            .body(ApiResponse.error(e.getErrorCode(), e.getMessage()));
     }
 
     /**
-     * 검증 예외 처리
+     * 검증 예외 처리 (@Valid 어노테이션)
      */
-    public ApiResponse<Void> handleValidationException(ValidationException e) {
-        System.out.println("WARN: Validation error - " + e.getMessage());
+    @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class})
+    public ResponseEntity<ApiResponse<Void>> handleValidationException(BindException e) {
+        log.warn("Validation error occurred: {}", e.getMessage());
 
-        return ApiResponse.error(e.getErrorCode(), e.getMessage());
+        String message = e.getBindingResult().getFieldErrors().stream()
+            .findFirst()
+            .map(error -> error.getDefaultMessage())
+            .orElse("Validation failed");
+
+        return ResponseEntity
+            .status(ErrorCode.INVALID_INPUT.getHttpStatus())
+            .body(ApiResponse.error(ErrorCode.INVALID_INPUT, message));
     }
 
     /**
-     * 리소스 없음 예외 처리
+     * 파일 업로드 크기 초과 예외 처리
      */
-    public ApiResponse<Void> handleResourceNotFoundException(ResourceNotFoundException e) {
-        System.out.println("WARN: Resource not found - " + e.getMessage());
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException e) {
+        log.warn("File upload size exceeded: {}", e.getMessage());
 
-        return ApiResponse.error(e.getErrorCode(), e.getMessage());
+        return ResponseEntity
+            .status(ErrorCode.OCR_FILE_TOO_LARGE.getHttpStatus())
+            .body(ApiResponse.error(ErrorCode.OCR_FILE_TOO_LARGE, "File size exceeds the allowed limit"));
     }
 
     /**
-     * 중복 리소스 예외 처리
+     * IllegalArgumentException 처리
      */
-    public ApiResponse<Void> handleDuplicateResourceException(DuplicateResourceException e) {
-        System.out.println("WARN: Duplicate resource - " + e.getMessage());
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException e) {
+        log.warn("Invalid argument: {}", e.getMessage());
 
-        return ApiResponse.error(e.getErrorCode(), e.getMessage());
-    }
-
-    /**
-     * 외부 서비스 예외 처리
-     */
-    public ApiResponse<Void> handleExternalServiceException(ExternalServiceException e) {
-        System.out.println("WARN: External service error - " + e.getMessage());
-
-        return ApiResponse.error(e.getErrorCode(), e.getMessage());
+        return ResponseEntity
+            .status(ErrorCode.INVALID_INPUT.getHttpStatus())
+            .body(ApiResponse.error(ErrorCode.INVALID_INPUT, e.getMessage()));
     }
 
     /**
      * 예상치 못한 모든 예외 처리
      * 위에서 처리되지 않은 모든 예외의 최종 처리
      */
-    public ApiResponse<Void> handleUnexpectedException(Exception e) {
-        // ERROR 레벨로 로깅 (예상치 못한 시스템 오류)
-        System.out.println("ERROR: Unexpected error occurred - " + e.getClass().getName() + ": " + e.getMessage());
-        e.printStackTrace(); // 스택 트레이스 출력 (개발 환경에서만)
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnexpectedException(Exception e) {
+        log.error("Unexpected error occurred", e);
 
-        return ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
+        return ResponseEntity
+            .status(ErrorCode.INTERNAL_SERVER_ERROR.getHttpStatus())
+            .body(ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR, "An unexpected error occurred"));
     }
 }
