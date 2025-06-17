@@ -70,9 +70,9 @@ public class ApiResponse<T> {
     }
 
     /**
-     * 커스텀 성공 코드를 사용한 성공 응답
+     * 커스텀 성공 코드를 사용한 성공 응답 (모든 도메인 성공 코드 지원)
      */
-    public static <T> ApiResponse<T> success(T data, SuccessCode successCode) {
+    public static <T> ApiResponse<T> success(T data, BaseSuccessCode successCode) {
         return new ApiResponse<>(
                 true,
                 successCode.getCode(),
@@ -96,9 +96,9 @@ public class ApiResponse<T> {
     }
 
     /**
-     * 커스텀 성공 코드를 사용한 데이터 없는 성공 응답
+     * 커스텀 성공 코드를 사용한 데이터 없는 성공 응답 (모든 도메인 성공 코드 지원)
      */
-    public static ApiResponse<Void> success(SuccessCode successCode) {
+    public static ApiResponse<Void> success(BaseSuccessCode successCode) {
         return new ApiResponse<>(
                 true,
                 successCode.getCode(),
