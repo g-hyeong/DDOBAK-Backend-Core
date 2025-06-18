@@ -1,3 +1,14 @@
 spring:
   application:
-    name: main-server 
+    name: main-server
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+# AWS 설정
+aws:
+  region: ap-northeast-2
+  profile: ddobak
+  s3:
+    test-bucket: ddobak-test  # 테스트용 버킷
