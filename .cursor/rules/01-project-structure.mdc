@@ -17,6 +17,31 @@ alwaysApply: false
 - **에러 코드**: 천의 자리 체계 (2xxx 성공, 4xxx 클라이언트, 5xxx 서버)
 - **API 응답**: 모든 API는 `ApiResponse<T>` 형식 필수
 
+## 🔢 새로운 응답 코드 체계 (2024년 6월 업데이트)
+
+### 도메인별 천의 자리 소유
+- **1xxx**: Auth 도메인 (인증/인가)
+- **2xxx**: User 도메인 (사용자 관리)  
+- **3xxx**: DocumentProcess 도메인 (문서 처리) ✅ 구현 완료
+- **4xxx**: ExternalContent 도메인 (외부 컨텐츠)
+- **5xxx**: Common/System (공통 시스템 에러) ✅ 구현 완료
+
+### 각 도메인 내 분류
+- **x000~x099**: 정상 또는 경고 수준
+- **x100~x999**: 에러
+
+### 현재 구현 상태
+```
+✅ 완료:
+- Common/System (5xxx): 5000-5099 성공, 5100-5399 에러
+- DocumentProcess (3xxx): 3000-3099 성공, 3100-3399 에러
+
+🔄 향후 구현 예정:
+- Auth (1xxx): 1000-1099 성공, 1100-1999 에러
+- User (2xxx): 2000-2099 성공, 2100-2999 에러  
+- ExternalContent (4xxx): 4000-4099 성공, 4100-4999 에러
+```
+
 ## 📁 필수 디렉터리 구조
 
 ```
@@ -29,39 +54,46 @@ src/main/java/com/sbpb/ddobak/server/
 │   └── S3Config.java             # AWS S3 설정
 │
 ├── domain/                       # 도메인별 모듈
-│   ├── user/                     # 사용자 도메인
+│   ├── user/                     # 사용자 도메인 (2xxx)
 │   │   ├── controller/
 │   │   ├── service/
 │   │   ├── dto/
 │   │   ├── entity/
 │   │   ├── repository/
-│   │   └── exception/           # 사용자 도메인 전용 예외
-│   ├── auth/                     # 인증 도메인
+│   │   └── exception/           # 향후 User 도메인 전용 예외 (2xxx)
+│   ├── auth/                     # 인증 도메인 (1xxx)
 │   │   ├── controller/
 │   │   ├── service/
 │   │   ├── dto/
 │   │   ├── entity/
 │   │   ├── repository/
-│   │   ├── exception/           # 인증 도메인 전용 예외
+│   │   ├── exception/           # 향후 Auth 도메인 전용 예외 (1xxx)
 │   │   └── oauth/               # 소셜 로그인 클라이언트
-│   ├── documentProcess/         # 문서 처리 도메인
+│   ├── documentProcess/         # 문서 처리 도메인 (3xxx) ✅ 완성
 │   │   ├── controller/
 │   │   ├── service/
 │   │   ├── dto/
 │   │   ├── entity/
 │   │   ├── repository/
-│   │   └── exception/           # 문서 처리 도메인 전용 예외
-│   └── externalContent/         # 외부 컨텐츠 도메인
+│   │   └── exception/           # DocumentProcess 도메인 전용 예외 (3xxx) ✅
+│   │       ├── DocumentProcessErrorCode.java      # 3100-3399 에러
+│   │       ├── DocumentProcessSuccessCode.java    # 3000-3099 성공
+│   │       ├── DocumentProcessBusinessException.java
+│   │       ├── DocumentProcessApiResponse.java
+│   │       ├── DocumentProcessExceptionHandler.java
+│   │       ├── ContractExceptions.java
+│   │       └── ContractAnalysisExceptions.java
+│   └── externalContent/         # 외부 컨텐츠 도메인 (4xxx)
 │       ├── controller/
 │       ├── service/
 │       ├── dto/
 │       ├── entity/
 │       ├── repository/
-│       └── exception/           # 외부 컨텐츠 도메인 전용 예외
+│       └── exception/           # 향후 ExternalContent 도메인 전용 예외 (4xxx)
 │
 ├── common/                      # 공통 모듈 ✅ 완성
 │   ├── exception/               # 예외 처리 ✅ 완성
-│   │   ├── ErrorCode.java       # 천의 자리 에러 코드 체계 (4xxx, 5xxx)
+│   │   ├── ErrorCode.java       # 공통 시스템 에러 (5xxx) ✅
 │   │   ├── BusinessException.java # 예외 기반 클래스 (추적 ID, 속성 지원)
 │   │   ├── GlobalExceptionHandler.java # 전역 예외 처리
 │   │   ├── ValidationException.java # 검증 실패 예외
@@ -70,7 +102,7 @@ src/main/java/com/sbpb/ddobak/server/
 │   │   └── ExternalServiceException.java # 외부 서비스 예외
 │   ├── response/                # 공통 응답 형식 ✅ 완성
 │   │   ├── ApiResponse.java     # 통일된 API 응답 (Generic, 추적 ID)
-│   │   ├── SuccessCode.java     # 성공 코드 체계 (2xxx)
+│   │   ├── SuccessCode.java     # 공통 시스템 성공 코드 (5xxx) ✅
 │   │   └── PageResponse.java    # 페이징 응답 (Spring Data 연동)
 │   └── utils/                   # 유틸리티
 │

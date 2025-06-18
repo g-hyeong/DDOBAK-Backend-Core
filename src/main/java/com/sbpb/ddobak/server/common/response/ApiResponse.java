@@ -1,12 +1,12 @@
 package com.sbpb.ddobak.server.common.response;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.sbpb.ddobak.server.common.exception.ErrorCode;
+import com.sbpb.ddobak.server.common.utils.IdGenerator;
 
 /**
  * 모든 API 응답에 사용되는 통일된 응답 형식
@@ -70,9 +70,9 @@ public class ApiResponse<T> {
     }
 
     /**
-     * 커스텀 성공 코드를 사용한 성공 응답
+     * 커스텀 성공 코드를 사용한 성공 응답 (모든 도메인 성공 코드 지원)
      */
-    public static <T> ApiResponse<T> success(T data, SuccessCode successCode) {
+    public static <T> ApiResponse<T> success(T data, BaseSuccessCode successCode) {
         return new ApiResponse<>(
                 true,
                 successCode.getCode(),
@@ -96,9 +96,9 @@ public class ApiResponse<T> {
     }
 
     /**
-     * 커스텀 성공 코드를 사용한 데이터 없는 성공 응답
+     * 커스텀 성공 코드를 사용한 데이터 없는 성공 응답 (모든 도메인 성공 코드 지원)
      */
-    public static ApiResponse<Void> success(SuccessCode successCode) {
+    public static ApiResponse<Void> success(BaseSuccessCode successCode) {
         return new ApiResponse<>(
                 true,
                 successCode.getCode(),
@@ -152,10 +152,10 @@ public class ApiResponse<T> {
     // ===== 유틸리티 메서드들 =====
 
     /**
-     * 추적 ID 생성
+     * 추적 ID 생성 (12자리 짧은 ID)
      */
     private static String generateTraceId() {
-        return UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        return IdGenerator.generateTraceId();
     }
 
     // ===== Getter 메서드들 =====
