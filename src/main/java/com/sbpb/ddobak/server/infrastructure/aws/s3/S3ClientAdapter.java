@@ -1,4 +1,4 @@
-package com.sbpb.ddobak.server.common.utils.aws.s3;
+package com.sbpb.ddobak.server.infrastructure.aws.s3;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,18 +13,15 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * AWS S3 클라우드 스토리지 유틸리티 클래스
+ * AWS S3 클라이언트 어댑터
  * 
- * 파일 업로드, 다운로드, 삭제, 목록 조회 등 S3 기본 작업을 처리합니다.
- * 모든 작업은 예외 안전하며, 실패 시 적절한 기본값을 반환합니다.
- * 
- * @since 1.0
- * @author DDOBAK Team
+ * Infrastructure Layer에서 S3 연동을 담당하는 어댑터 클래스
+ * 기존 S3Util을 Clean Architecture 패턴에 맞게 리팩토링
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class S3Util {
+public class S3ClientAdapter {
 
     private final S3Client s3Client;
 
@@ -159,35 +156,23 @@ public class S3Util {
 
     // ==================== Private Helper Methods ====================
 
-    /**
-     * 버킷 이름과 객체 키의 유효성을 검증합니다
-     */
     private void validateBucketAndKey(String bucketName, String objectKey) {
         validateBucketName(bucketName);
         validateObjectKey(objectKey);
     }
 
-    /**
-     * 버킷 이름의 유효성을 검증합니다
-     */
     private void validateBucketName(String bucketName) {
         if (bucketName == null || bucketName.trim().isEmpty()) {
             throw new IllegalArgumentException("Bucket name cannot be null or empty");
         }
     }
 
-    /**
-     * 객체 키의 유효성을 검증합니다
-     */
     private void validateObjectKey(String objectKey) {
         if (objectKey == null || objectKey.trim().isEmpty()) {
             throw new IllegalArgumentException("Object key cannot be null or empty");
         }
     }
 
-    /**
-     * 입력 스트림과 크기의 유효성을 검증합니다
-     */
     private void validateInputStream(InputStream inputStream, long contentLength) {
         if (inputStream == null) {
             throw new IllegalArgumentException("InputStream cannot be null");
@@ -197,9 +182,6 @@ public class S3Util {
         }
     }
 
-    /**
-     * PUT 요청 객체를 생성합니다
-     */
     private PutObjectRequest buildPutObjectRequest(String bucketName, String objectKey) {
         return PutObjectRequest.builder()
                 .bucket(bucketName)
@@ -207,9 +189,6 @@ public class S3Util {
                 .build();
     }
 
-    /**
-     * GET 요청 객체를 생성합니다
-     */
     private GetObjectRequest buildGetObjectRequest(String bucketName, String objectKey) {
         return GetObjectRequest.builder()
                 .bucket(bucketName)
@@ -217,9 +196,6 @@ public class S3Util {
                 .build();
     }
 
-    /**
-     * DELETE 요청 객체를 생성합니다
-     */
     private DeleteObjectRequest buildDeleteObjectRequest(String bucketName, String objectKey) {
         return DeleteObjectRequest.builder()
                 .bucket(bucketName)
@@ -227,9 +203,6 @@ public class S3Util {
                 .build();
     }
 
-    /**
-     * LIST 요청 객체를 생성합니다
-     */
     private ListObjectsV2Request buildListObjectsRequest(String bucketName, String prefix) {
         ListObjectsV2Request.Builder builder = ListObjectsV2Request.builder()
                 .bucket(bucketName);
@@ -241,9 +214,6 @@ public class S3Util {
         return builder.build();
     }
 
-    /**
-     * HEAD 요청 객체를 생성합니다
-     */
     private HeadObjectRequest buildHeadObjectRequest(String bucketName, String objectKey) {
         return HeadObjectRequest.builder()
                 .bucket(bucketName)
@@ -251,9 +221,6 @@ public class S3Util {
                 .build();
     }
 
-    /**
-     * 응답에서 객체 키 목록을 추출합니다
-     */
     private List<String> extractObjectKeys(ListObjectsV2Response response) {
         return response.contents().stream()
                 .map(S3Object::key)

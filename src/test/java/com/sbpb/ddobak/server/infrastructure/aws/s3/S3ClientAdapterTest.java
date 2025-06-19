@@ -1,4 +1,4 @@
-package com.sbpb.ddobak.server.common.utils.aws.s3;
+package com.sbpb.ddobak.server.infrastructure.aws.s3;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,18 +21,18 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * S3Util 테스트 클래스
- * AWS S3Client를 Mock하여 단위 테스트 수행
+ * S3ClientAdapter 테스트 클래스
+ * Infrastructure Layer의 AWS S3 어댑터 단위 테스트
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("S3Util 테스트")
-class S3UtilTest {
+@DisplayName("S3ClientAdapter 테스트")
+class S3ClientAdapterTest {
 
     @Mock
     private S3Client s3Client;
 
     @InjectMocks
-    private S3Util s3Util;
+    private S3ClientAdapter s3ClientAdapter;
 
     private String testBucket;
     private String testKey;
@@ -55,7 +55,7 @@ class S3UtilTest {
         when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class))).thenReturn(mockResponse);
 
         // When
-        boolean result = s3Util.uploadObject(testBucket, testKey, testInputStream, testContentLength);
+        boolean result = s3ClientAdapter.uploadObject(testBucket, testKey, testInputStream, testContentLength);
 
         // Then
         assertTrue(result, "파일 업로드가 성공해야 합니다");
@@ -70,7 +70,7 @@ class S3UtilTest {
                 .thenThrow(new RuntimeException("Upload failed"));
 
         // When
-        boolean result = s3Util.uploadObject(testBucket, testKey, testInputStream, testContentLength);
+        boolean result = s3ClientAdapter.uploadObject(testBucket, testKey, testInputStream, testContentLength);
 
         // Then
         assertFalse(result, "예외 발생 시 업로드가 실패해야 합니다");
@@ -85,7 +85,7 @@ class S3UtilTest {
         when(s3Client.getObject(any(GetObjectRequest.class))).thenReturn(mockResponseStream);
 
         // When
-        InputStream result = s3Util.getObject(testBucket, testKey);
+        InputStream result = s3ClientAdapter.getObject(testBucket, testKey);
 
         // Then
         assertNotNull(result, "다운로드된 InputStream이 null이 아니어야 합니다");
@@ -101,7 +101,7 @@ class S3UtilTest {
                 .thenThrow(new RuntimeException("Download failed"));
 
         // When
-        InputStream result = s3Util.getObject(testBucket, testKey);
+        InputStream result = s3ClientAdapter.getObject(testBucket, testKey);
 
         // Then
         assertNull(result, "예외 발생 시 null을 반환해야 합니다");
@@ -115,7 +115,7 @@ class S3UtilTest {
         when(s3Client.deleteObject(any(DeleteObjectRequest.class))).thenReturn(mockResponse);
 
         // When
-        boolean result = s3Util.deleteObject(testBucket, testKey);
+        boolean result = s3ClientAdapter.deleteObject(testBucket, testKey);
 
         // Then
         assertTrue(result, "파일 삭제가 성공해야 합니다");
@@ -130,7 +130,7 @@ class S3UtilTest {
                 .thenThrow(new RuntimeException("Delete failed"));
 
         // When
-        boolean result = s3Util.deleteObject(testBucket, testKey);
+        boolean result = s3ClientAdapter.deleteObject(testBucket, testKey);
 
         // Then
         assertFalse(result, "예외 발생 시 삭제가 실패해야 합니다");
@@ -150,7 +150,7 @@ class S3UtilTest {
         when(s3Client.listObjectsV2(any(ListObjectsV2Request.class))).thenReturn(mockResponse);
 
         // When
-        List<String> result = s3Util.listObjects(testBucket, "prefix");
+        List<String> result = s3ClientAdapter.listObjects(testBucket, "prefix");
 
         // Then
         assertNotNull(result, "결과 리스트가 null이 아니어야 합니다");
@@ -168,7 +168,7 @@ class S3UtilTest {
                 .thenThrow(new RuntimeException("List failed"));
 
         // When
-        List<String> result = s3Util.listObjects(testBucket, "prefix");
+        List<String> result = s3ClientAdapter.listObjects(testBucket, "prefix");
 
         // Then
         assertNotNull(result, "예외 발생 시에도 빈 리스트를 반환해야 합니다");
@@ -183,7 +183,7 @@ class S3UtilTest {
         when(s3Client.headObject(any(HeadObjectRequest.class))).thenReturn(mockResponse);
 
         // When
-        boolean result = s3Util.objectExists(testBucket, testKey);
+        boolean result = s3ClientAdapter.objectExists(testBucket, testKey);
 
         // Then
         assertTrue(result, "객체가 존재할 때 true를 반환해야 합니다");
@@ -198,7 +198,7 @@ class S3UtilTest {
                 .thenThrow(NoSuchKeyException.builder().build());
 
         // When
-        boolean result = s3Util.objectExists(testBucket, testKey);
+        boolean result = s3ClientAdapter.objectExists(testBucket, testKey);
 
         // Then
         assertFalse(result, "객체가 존재하지 않을 때 false를 반환해야 합니다");
@@ -212,17 +212,17 @@ class S3UtilTest {
                 .thenThrow(new RuntimeException("Other error"));
 
         // When
-        boolean result = s3Util.objectExists(testBucket, testKey);
+        boolean result = s3ClientAdapter.objectExists(testBucket, testKey);
 
         // Then
         assertFalse(result, "기타 예외 발생 시 false를 반환해야 합니다");
     }
 
     @Test
-    @DisplayName("순차적 테스트 파일 생성")
+    @DisplayName("순차적 테스트 파일 생성 - 통합 테스트")
     void createSequentialTestFile() {
         // Given - 실제 AWS S3 연결을 위해 Mock 비활성화
-        s3Util = new S3Util(S3Client.builder()
+        s3ClientAdapter = new S3ClientAdapter(S3Client.builder()
                 .region(software.amazon.awssdk.regions.Region.AP_NORTHEAST_2)
                 .credentialsProvider(software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider.builder()
                         .profileName("ddobak")
@@ -233,8 +233,9 @@ class S3UtilTest {
         
         // When
         // 1. 현재 목록 조회
-        System.out.println("=== 현재 버킷 목록 조회 ===");
-        List<String> allObjects = s3Util.listObjects(bucket, null);
+        System.out.println("=== S3ClientAdapter 통합 테스트 시작 ===");
+        System.out.println("Target bucket: " + bucket);
+        List<String> allObjects = s3ClientAdapter.listObjects(bucket, null);
         System.out.println("총 " + allObjects.size() + "개 객체 발견");
         allObjects.forEach(key -> System.out.println("  - " + key));
         
@@ -246,14 +247,15 @@ class S3UtilTest {
         String nextFile = "test" + nextNumber;
         System.out.println("생성할 파일: " + nextFile);
         
-        String content = "Test file " + nextNumber + " created at " + java.time.LocalDateTime.now();
+        String content = "Test file " + nextNumber + " created by S3ClientAdapter at " + java.time.LocalDateTime.now();
         java.io.InputStream inputStream = new java.io.ByteArrayInputStream(content.getBytes());
         
-        boolean success = s3Util.uploadObject(bucket, nextFile, inputStream, content.getBytes().length);
+        boolean success = s3ClientAdapter.uploadObject(bucket, nextFile, inputStream, content.getBytes().length);
         
         // Then
         assertTrue(success, "파일 업로드가 성공해야 합니다");
-        System.out.println("✅ 파일 생성 완료: " + nextFile);
+        System.out.println("✅ S3ClientAdapter 파일 생성 완료: " + nextFile);
+        System.out.println("=== S3ClientAdapter 통합 테스트 완료 ===");
     }
 
     /**
@@ -263,23 +265,18 @@ class S3UtilTest {
         int maxNumber = 0;
         
         for (String key : objectKeys) {
-            System.out.println("검사 중인 키: " + key);
             if (key.matches("^test\\d+$")) {
                 try {
                     int number = Integer.parseInt(key.substring(4));
-                    System.out.println("  -> test 파일 발견: " + key + " (번호: " + number + ")");
                     if (number > maxNumber) {
                         maxNumber = number;
                     }
                 } catch (NumberFormatException e) {
-                    System.out.println("  -> 번호 파싱 실패: " + key);
+                    // 번호 파싱 실패는 무시
                 }
-            } else {
-                System.out.println("  -> test 파일 아님: " + key);
             }
         }
         
-        System.out.println("현재 최대 번호: " + maxNumber);
         return maxNumber;
     }
 
@@ -305,24 +302,24 @@ class S3UtilTest {
         // When & Then - 메서드 호출 순서대로 테스트
         
         // 1. 업로드
-        boolean uploadResult = s3Util.uploadObject(bucket, key, inputStream, 7);
+        boolean uploadResult = s3ClientAdapter.uploadObject(bucket, key, inputStream, 7);
         assertTrue(uploadResult, "업로드가 성공해야 합니다");
 
         // 2. 존재 확인
-        boolean existsResult = s3Util.objectExists(bucket, key);
+        boolean existsResult = s3ClientAdapter.objectExists(bucket, key);
         assertTrue(existsResult, "객체가 존재해야 합니다");
 
         // 3. 목록 조회
-        List<String> listResult = s3Util.listObjects(bucket, "test-");
+        List<String> listResult = s3ClientAdapter.listObjects(bucket, "test-");
         assertNotNull(listResult, "목록이 null이 아니어야 합니다");
         assertEquals(1, listResult.size(), "1개의 객체가 있어야 합니다");
 
         // 4. 다운로드
-        InputStream downloadResult = s3Util.getObject(bucket, key);
+        InputStream downloadResult = s3ClientAdapter.getObject(bucket, key);
         assertNotNull(downloadResult, "다운로드 결과가 null이 아니어야 합니다");
 
         // 5. 삭제
-        boolean deleteResult = s3Util.deleteObject(bucket, key);
+        boolean deleteResult = s3ClientAdapter.deleteObject(bucket, key);
         assertTrue(deleteResult, "삭제가 성공해야 합니다");
     }
 } 
