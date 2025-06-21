@@ -1,4 +1,4 @@
-package com.sbpb.ddobak.server.domain.external.lambda;
+package com.sbpb.ddobak.server.infrastructure.aws.lambda;
 
 import com.sbpb.ddobak.server.common.response.ApiResponse;
 
@@ -8,9 +8,9 @@ import java.util.Map;
  * Lambda 함수 호출 포트 인터페이스
  * 
  * Clean Architecture 원칙:
- * - Domain Layer에서 정의하는 외부 시스템 연동 포트
- * - Infrastructure Layer에서 구현체 제공
- * - 도메인 로직이 구체적인 기술에 의존하지 않도록 추상화
+ * - Infrastructure Layer에서 정의하는 외부 시스템 연동 포트
+ * - Domain Layer에서 이 인터페이스에 의존
+ * - 구현체는 동일한 Infrastructure Layer에서 제공
  */
 public interface LambdaInvoker {
 

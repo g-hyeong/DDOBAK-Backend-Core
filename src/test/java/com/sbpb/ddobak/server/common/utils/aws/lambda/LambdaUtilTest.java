@@ -1,7 +1,7 @@
 package com.sbpb.ddobak.server.common.utils.aws.lambda;
 
 import com.sbpb.ddobak.server.common.response.ApiResponse;
-import com.sbpb.ddobak.server.domain.external.lambda.LambdaInvoker;
+import com.sbpb.ddobak.server.infrastructure.aws.lambda.LambdaInvoker;
 import com.sbpb.ddobak.server.infrastructure.aws.config.AwsTestConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.DisplayName;

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sbpb.ddobak.server.common.exception.ErrorCode;
 import com.sbpb.ddobak.server.common.exception.ExternalServiceException;
 import com.sbpb.ddobak.server.common.response.ApiResponse;
-import com.sbpb.ddobak.server.domain.external.lambda.LambdaInvoker;
+
 import com.sbpb.ddobak.server.infrastructure.aws.config.AwsTestConfig.LambdaFunctionSpec;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

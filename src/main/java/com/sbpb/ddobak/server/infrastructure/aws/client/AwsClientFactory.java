@@ -29,12 +29,8 @@ public class AwsClientFactory {
                 awsProperties.getProfile(), awsProperties.getRegion());
         
         return LambdaClient.builder()
-                .region(Region.of(awsProperties.getRegion()))
-                .credentialsProvider(
-                        ProfileCredentialsProvider.builder()
-                                .profileName(awsProperties.getProfile())
-                                .build()
-                )
+                .region(getConfiguredRegion())
+                .credentialsProvider(createCredentialsProvider())
                 .build();
     }
 
@@ -48,12 +44,8 @@ public class AwsClientFactory {
                 awsProperties.getProfile(), awsProperties.getRegion());
         
         return S3Client.builder()
-                .region(Region.of(awsProperties.getRegion()))
-                .credentialsProvider(
-                        ProfileCredentialsProvider.builder()
-                                .profileName(awsProperties.getProfile())
-                                .build()
-                )
+                .region(getConfiguredRegion())
+                .credentialsProvider(createCredentialsProvider())
                 .build();
     }
 
