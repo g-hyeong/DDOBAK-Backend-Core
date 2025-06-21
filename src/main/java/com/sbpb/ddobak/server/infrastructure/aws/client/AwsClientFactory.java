@@ -8,6 +8,7 @@ import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.sfn.SfnClient;
 
 /**
  * AWS 클라이언트 생성을 담당하는 팩토리 클래스
@@ -44,6 +45,21 @@ public class AwsClientFactory {
                 awsProperties.getProfile(), awsProperties.getRegion());
         
         return S3Client.builder()
+                .region(getConfiguredRegion())
+                .credentialsProvider(createCredentialsProvider())
+                .build();
+    }
+
+    /**
+     * AWS Step Functions 클라이언트 생성
+     * 
+     * @return 설정된 Step Functions 클라이언트
+     */
+    public SfnClient createStepFunctionsClient() {
+        log.info("Creating AWS Step Functions Client with profile: {} and region: {}", 
+                awsProperties.getProfile(), awsProperties.getRegion());
+        
+        return SfnClient.builder()
                 .region(getConfiguredRegion())
                 .credentialsProvider(createCredentialsProvider())
                 .build();

@@ -29,10 +29,14 @@ dependencies {
 	implementation 'com.fasterxml.jackson.core:jackson-databind'
 	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 	
+	// Environment variables (.env file support)
+	implementation 'me.paulschwarz:spring-dotenv:4.0.0'
+	
 	// AWS SDK
 	implementation platform('software.amazon.awssdk:bom:2.28.29')
 	implementation 'software.amazon.awssdk:s3'
 	implementation 'software.amazon.awssdk:lambda'
+	implementation 'software.amazon.awssdk:sfn'
 	
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'

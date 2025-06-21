@@ -1,5 +1,6 @@
 package com.sbpb.ddobak.server.infrastructure.aws.config;
 
+import com.sbpb.ddobak.server.config.AwsProperties;
 import com.sbpb.ddobak.server.infrastructure.aws.client.AwsClientFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7,6 +8,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.sfn.SfnClient;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,6 +22,7 @@ import java.util.Map;
 public class AwsInfrastructureConfig {
 
     private final AwsClientFactory awsClientFactory;
+    private final AwsProperties awsProperties;
 
     /**
      * AWS Lambda Client Bean 등록
@@ -35,6 +38,14 @@ public class AwsInfrastructureConfig {
     @Bean
     public S3Client s3Client() {
         return awsClientFactory.createS3Client();
+    }
+
+    /**
+     * AWS Step Functions Client Bean 등록
+     */
+    @Bean
+    public SfnClient stepFunctionsClient() {
+        return awsClientFactory.createStepFunctionsClient();
     }
 
     /**
@@ -60,6 +71,30 @@ public class AwsInfrastructureConfig {
         
         log.info("Production Lambda function configurations initialized: {}", functions.keySet());
         return functions;
+    }
+
+    /**
+     * 운영용 Step Functions State Machine 설정 맵
+     */
+    @Bean
+    public Map<String, StateMachineSpec> productionStateMachines() {
+        log.info("Initializing production Step Functions state machine configurations");
+        
+        Map<String, StateMachineSpec> stateMachines = new HashMap<>();
+        
+        // 계약서 분석 State Machine 설정
+        stateMachines.put("contract_analysis", StateMachineSpec.builder()
+                .stateMachineArn(awsProperties.getStepFunctions().getContractAnalysisStateMachineArn())
+                .name("contract-analysis-workflow")
+                .description("계약서 분석 워크플로우 (OCR + AI 분석)")
+                .timeoutMinutes(15) // 15분 타임아웃 - 전체 분석 프로세스 고려
+                .validateInput(true) // 입력 스키마 검증 활성화
+                .collectLogs(true) // 실행 로그 수집 활성화
+                .build());
+        
+        log.info("Production state machine configurations initialized: {}", stateMachines.keySet());
+        log.info("Contract analysis State Machine ARN: {}", awsProperties.getStepFunctions().getContractAnalysisStateMachineArn());
+        return stateMachines;
     }
 
     /**
@@ -142,6 +177,82 @@ public class AwsInfrastructureConfig {
                 spec.timeoutMillis = this.timeoutMillis;
                 spec.validateResponseSchema = this.validateResponseSchema;
                 spec.maxRetries = this.maxRetries;
+                spec.collectLogs = this.collectLogs;
+                return spec;
+            }
+        }
+    }
+
+    /**
+     * Step Functions State Machine 스펙 정의
+     */
+    public static class StateMachineSpec {
+        private String stateMachineArn;
+        private String name;
+        private String description;
+        private int timeoutMinutes;
+        private boolean validateInput;
+        private boolean collectLogs;
+
+        // Builder 패턴
+        public static StateMachineSpecBuilder builder() {
+            return new StateMachineSpecBuilder();
+        }
+
+        // Getters
+        public String getStateMachineArn() { return stateMachineArn; }
+        public String getName() { return name; }
+        public String getDescription() { return description; }
+        public int getTimeoutMinutes() { return timeoutMinutes; }
+        public boolean isValidateInput() { return validateInput; }
+        public boolean isCollectLogs() { return collectLogs; }
+
+        // Builder 클래스
+        public static class StateMachineSpecBuilder {
+            private String stateMachineArn;
+            private String name;
+            private String description;
+            private int timeoutMinutes;
+            private boolean validateInput;
+            private boolean collectLogs;
+
+            public StateMachineSpecBuilder stateMachineArn(String stateMachineArn) {
+                this.stateMachineArn = stateMachineArn;
+                return this;
+            }
+
+            public StateMachineSpecBuilder name(String name) {
+                this.name = name;
+                return this;
+            }
+
+            public StateMachineSpecBuilder description(String description) {
+                this.description = description;
+                return this;
+            }
+
+            public StateMachineSpecBuilder timeoutMinutes(int timeoutMinutes) {
+                this.timeoutMinutes = timeoutMinutes;
+                return this;
+            }
+
+            public StateMachineSpecBuilder validateInput(boolean validateInput) {
+                this.validateInput = validateInput;
+                return this;
+            }
+
+            public StateMachineSpecBuilder collectLogs(boolean collectLogs) {
+                this.collectLogs = collectLogs;
+                return this;
+            }
+
+            public StateMachineSpec build() {
+                StateMachineSpec spec = new StateMachineSpec();
+                spec.stateMachineArn = this.stateMachineArn;
+                spec.name = this.name;
+                spec.description = this.description;
+                spec.timeoutMinutes = this.timeoutMinutes;
+                spec.validateInput = this.validateInput;
                 spec.collectLogs = this.collectLogs;
                 return spec;
             }

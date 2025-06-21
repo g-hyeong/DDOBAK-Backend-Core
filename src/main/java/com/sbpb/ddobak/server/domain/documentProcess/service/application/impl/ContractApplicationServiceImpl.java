@@ -2,7 +2,7 @@ package com.sbpb.ddobak.server.domain.documentProcess.service.application.impl;
 
 import com.sbpb.ddobak.server.domain.documentProcess.dto.*;
 import com.sbpb.ddobak.server.domain.documentProcess.service.application.ContractApplicationService;
-import com.sbpb.ddobak.server.domain.documentProcess.service.domain.ContractOcrService;
+import com.sbpb.ddobak.server.domain.documentProcess.service.domain.ContractAnalysisService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,15 +17,15 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class ContractApplicationServiceImpl implements ContractApplicationService {
 
-    private final ContractOcrService contractOcrService;
+    private final ContractAnalysisService contractAnalysisService;
 
     /**
-     * OCR 처리 요청
-     * OCR 도메인 서비스에 위임
+     * 분석 처리 요청
+     * 분석 도메인 서비스에 위임
      */
     @Override
-    public ContractOcrResponse processOcr(ContractOcrRequest request, String userId) {
-        log.info("Application: Processing OCR request for user: {}", userId);
-        return contractOcrService.processOcr(request, userId);
+    public ContractAnalysisResponse processAnalysis(ContractAnalysisRequest request, String userId) {
+        log.info("Application: Processing analysis request for user: {}", userId);
+        return contractAnalysisService.processAnalysis(request, userId);
     }
 } 

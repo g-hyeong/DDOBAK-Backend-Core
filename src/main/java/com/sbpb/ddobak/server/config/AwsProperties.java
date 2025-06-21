@@ -21,10 +21,22 @@ public class AwsProperties {
 
      // S3 관련 설정 기본값
     private S3Properties s3 = new S3Properties();
+    
+    // Step Functions 관련 설정
+    private StepFunctionsProperties stepFunctions = new StepFunctionsProperties();
 
     @Data
     public static class S3Properties {
          // 테스트용 S3 버킷 기본값
         private String testBucket = "ddobak-test";
+        
+        // 서비스용 S3 버킷 (기본값은 test 버킷으로)
+        private String serviceBucket = "ddobak-test";
+    }
+    
+    @Data
+    public static class StepFunctionsProperties {
+        // 계약서 분석 State Machine ARN
+        private String contractAnalysisStateMachineArn = "arn_for_step_functions";
     }
 } 

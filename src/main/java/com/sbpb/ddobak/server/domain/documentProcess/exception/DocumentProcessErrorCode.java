@@ -19,8 +19,8 @@ import lombok.RequiredArgsConstructor;
  * - x100~x999: 에러
  * 
  * DocumentProcess 도메인 세부 분류:
- * - 3100-3199: OCR 관련 에러
- * - 3200-3299: 분석 관련 에러
+ * - 3100-3199: 분석 요청 관련 에러
+ * - 3200-3299: 분석 처리 관련 에러
  * - 3300-3399: 결과 조회 관련 에러
  * - 3400-3499: 기타 문서 처리 에러
  */
@@ -28,25 +28,25 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum DocumentProcessErrorCode {
 
-    // ===== 3100-3199: OCR 관련 에러 =====
-    OCR_INVALID_REQUEST(HttpStatus.BAD_REQUEST, 3100, "Invalid OCR request format"),
-    OCR_FILE_MISSING(HttpStatus.BAD_REQUEST, 3101, "Image file is missing"),
-    OCR_UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, 3102, "Unsupported file type"),
-    OCR_FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, 3103, "File size exceeds limit"),
-    OCR_IMAGE_DECODING_FAILED(HttpStatus.BAD_REQUEST, 3104, "Image decoding failed"),
-    OCR_IMAGE_EMPTY(HttpStatus.BAD_REQUEST, 3105, "No recognizable content in image"),
-    OCR_CONTRACT_TYPE_INVALID(HttpStatus.BAD_REQUEST, 3106, "Invalid contract type"),
-    OCR_PROCESSING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, 3150, "OCR processing failed"),
-    OCR_ENGINE_TIMEOUT(HttpStatus.REQUEST_TIMEOUT, 3151, "OCR processing timeout"),
-    OCR_ENGINE_INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 3152, "OCR engine internal error"),
+    // ===== 3100-3199: 분석 요청 관련 에러 =====
+    ANALYSIS_INVALID_REQUEST(HttpStatus.BAD_REQUEST, 3100, "Invalid analysis request format"),
+    ANALYSIS_FILE_MISSING(HttpStatus.BAD_REQUEST, 3101, "Image file is missing"),
+    ANALYSIS_UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, 3102, "Unsupported file type"),
+    ANALYSIS_FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, 3103, "File size exceeds limit"),
+    ANALYSIS_IMAGE_DECODING_FAILED(HttpStatus.BAD_REQUEST, 3104, "Image decoding failed"),
+    ANALYSIS_IMAGE_EMPTY(HttpStatus.BAD_REQUEST, 3105, "No recognizable content in image"),
+    ANALYSIS_CONTRACT_TYPE_INVALID(HttpStatus.BAD_REQUEST, 3106, "Invalid contract type"),
+    ANALYSIS_PROCESSING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, 3150, "Analysis processing failed"),
+    ANALYSIS_ENGINE_TIMEOUT(HttpStatus.REQUEST_TIMEOUT, 3151, "Analysis processing timeout"),
+    ANALYSIS_ENGINE_INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 3152, "Analysis engine internal error"),
 
-    // ===== 3200-3299: 분석 관련 에러 =====
+    // ===== 3200-3299: 분석 처리 관련 에러 =====
     CONTRACT_ID_MISSING(HttpStatus.BAD_REQUEST, 3200, "Contract ID is missing"),
     CONTRACT_NOT_FOUND(HttpStatus.NOT_FOUND, 3201, "Contract not found"),
     ANALYSIS_ALREADY_EXISTS(HttpStatus.CONFLICT, 3202, "Analysis already exists for this contract"),
-    OCR_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, 3203, "OCR result not found"),
+    ANALYSIS_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, 3203, "Analysis result not found"),
     IMAGE_NOT_MARKED(HttpStatus.BAD_REQUEST, 3204, "Image marking is required"),
-    ANALYSIS_PROCESSING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, 3250, "Analysis processing failed"),
+    STEP_FUNCTIONS_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, 3250, "Step Functions execution failed"),
     ANALYSIS_TIMEOUT(HttpStatus.REQUEST_TIMEOUT, 3251, "Analysis timeout"),
     TEXT_EXTRACTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, 3252, "Text extraction failed"),
     ANALYSIS_SERVER_DOWN(HttpStatus.SERVICE_UNAVAILABLE, 3253, "Analysis server unavailable"),

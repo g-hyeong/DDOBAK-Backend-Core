@@ -32,36 +32,36 @@ public class ContractExceptions {
     }
 
     /**
-     * OCR 파일 관련 예외들
+     * 분석용 파일 관련 예외들
      */
-    public static class OcrFileException extends DocumentProcessBusinessException {
-        private OcrFileException(DocumentProcessErrorCode errorCode, String message) {
+    public static class AnalysisFileException extends DocumentProcessBusinessException {
+        private AnalysisFileException(DocumentProcessErrorCode errorCode, String message) {
             super(errorCode, message);
         }
 
-        public static OcrFileException fileMissing() {
-            return new OcrFileException(DocumentProcessErrorCode.OCR_FILE_MISSING, "File is required for OCR processing");
+        public static AnalysisFileException fileMissing() {
+            return new AnalysisFileException(DocumentProcessErrorCode.ANALYSIS_FILE_MISSING, "File is required for analysis processing");
         }
 
-        public static OcrFileException fileTooLarge() {
-            return new OcrFileException(DocumentProcessErrorCode.OCR_FILE_TOO_LARGE, "File size exceeds 10MB limit");
+        public static AnalysisFileException fileTooLarge() {
+            return new AnalysisFileException(DocumentProcessErrorCode.ANALYSIS_FILE_TOO_LARGE, "File size exceeds 20MB limit");
         }
 
-        public static OcrFileException unsupportedFileType(String contentType) {
-            return new OcrFileException(DocumentProcessErrorCode.OCR_UNSUPPORTED_FILE_TYPE, "Unsupported file type: " + contentType);
+        public static AnalysisFileException unsupportedFileType(String contentType) {
+            return new AnalysisFileException(DocumentProcessErrorCode.ANALYSIS_UNSUPPORTED_FILE_TYPE, "Unsupported file type: " + contentType);
         }
     }
 
     /**
-     * OCR 결과를 찾을 수 없는 경우
+     * 분석 결과를 찾을 수 없는 경우
      */
-    public static class OcrResultNotFoundException extends DocumentProcessBusinessException {
-        public OcrResultNotFoundException(String contractId) {
-            super(DocumentProcessErrorCode.OCR_RESULT_NOT_FOUND, "OCR result not found for contract ID: " + contractId);
+    public static class AnalysisResultNotFoundException extends DocumentProcessBusinessException {
+        public AnalysisResultNotFoundException(String contractId) {
+            super(DocumentProcessErrorCode.ANALYSIS_RESULT_NOT_FOUND, "Analysis result not found for contract ID: " + contractId);
         }
 
-        public static OcrResultNotFoundException forContract(String contractId) {
-            return new OcrResultNotFoundException(contractId);
+        public static AnalysisResultNotFoundException forContract(String contractId) {
+            return new AnalysisResultNotFoundException(contractId);
         }
     }
 } 

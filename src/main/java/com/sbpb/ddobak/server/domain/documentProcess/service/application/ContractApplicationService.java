@@ -9,7 +9,7 @@ import com.sbpb.ddobak.server.domain.documentProcess.dto.*;
 public interface ContractApplicationService {
 
     /**
-     * OCR 처리 요청
+     * 분석 처리 요청
      */
-    ContractOcrResponse processOcr(ContractOcrRequest request, String userId);
+    ContractAnalysisResponse processAnalysis(ContractAnalysisRequest request, String userId);
 } 

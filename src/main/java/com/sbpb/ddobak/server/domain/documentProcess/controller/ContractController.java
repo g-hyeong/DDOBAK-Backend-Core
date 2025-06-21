@@ -23,23 +23,26 @@ public class ContractController {
     private final ContractApplicationService contractApplicationService;
 
     /**
-     * OCR 요청 API
-     * POST /api/contract/ocr
+     * 분석 요청 API
+     * POST /api/contract/analysis
      */
-    @PostMapping(value = "/ocr", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<ContractOcrResponse>> processOcr(
-            @ModelAttribute ContractOcrRequest request,
+    @PostMapping(value = "/analysis", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<ContractAnalysisResponse>> processAnalysis(
+            @ModelAttribute ContractAnalysisRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = "X-Request-Id", required = false) String requestId) {
 
         // 임시로 고정 사용자 ID 사용 (실제로는 JWT에서 추출)
         String userId = "UTEST001";
         
-        log.info("OCR request received - userId: {}, requestId: {}", userId, requestId);
+        // 요청 정보 로깅
+        int fileCount = request.getFiles() != null ? request.getFiles().size() : 0;
+        log.info("Analysis request received - userId: {}, requestId: {}, fileCount: {}, clientId: {}, expectedCount: {}", 
+                userId, requestId, fileCount, request.getClientId(), request.getExpectedCount());
 
-        ContractOcrResponse response = contractApplicationService.processOcr(request, userId);
+        ContractAnalysisResponse response = contractApplicationService.processAnalysis(request, userId);
 
         return ResponseEntity.status(HttpStatus.OK)
-            .body(ApiResponse.success(response, DocumentProcessSuccessCode.OCR_SUCCESS));
+            .body(ApiResponse.success(response, DocumentProcessSuccessCode.ANALYSIS_SUCCESS));
     }
 } 
