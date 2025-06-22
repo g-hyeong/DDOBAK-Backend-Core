@@ -8,6 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     
     steps:
     - name: Checkout code
@@ -39,6 +40,7 @@ jobs:
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
         port: ${{ secrets.EC2_PORT }}
+        timeout: 300s
         script: |
           # 프로젝트 디렉토리로 이동
           cd /home/ec2-user/DDOBAK-Backend-Core
@@ -49,27 +51,27 @@ jobs:
           
           # 기존 서버 중지
           pkill -f "java -jar" || true
-          sleep 5
+          sleep 3
           
-          # 빌드
-          ./gradlew clean bootJar -x test
+          # 빌드 (타임아웃 설정)
+          timeout 300s ./gradlew clean bootJar -x test
           
           # AWS 자격 증명 확인
           echo "=== AWS Credentials Check ==="
           aws sts get-caller-identity
           
           # 서버 재시작
-          nohup java -jar build/libs/main-server-0.0.1-SNAPSHOT.jar > server.log 2>&1 &
+          nohup java -jar build/libs/main-server-0.0.1-SNAPSHOT.jar > server.log 2>&1 & disown
           
           # 서버 상태 확인
-          sleep 15
+          sleep 10
           echo "=== Server Process Check ==="
-          ps aux | grep java
+          ps aux | grep java | grep -v grep
           
           echo "=== Port Check ==="
-          netstat -tlnp | grep 8080
+          netstat -tlnp | grep 8080 || echo "Port 8080 not yet listening"
           
           echo "=== Server Log Check ==="
-          tail -10 server.log
+          tail -5 server.log
           
           echo "Github Actions를 통한 EC2 배포 성공!" 
