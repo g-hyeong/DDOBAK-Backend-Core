@@ -15,6 +15,7 @@ import com.sbpb.ddobak.server.domain.documentProcess.service.domain.ContractAnal
 import com.sbpb.ddobak.server.infrastructure.aws.s3.S3ClientAdapter;
 import com.sbpb.ddobak.server.infrastructure.aws.stepfunctions.StepFunctionsInvoker;
 import com.sbpb.ddobak.server.common.response.ApiResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,7 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
     private final StepFunctionsInvoker stepFunctionsInvoker;
     private final ContractRepository contractRepository;
     private final AwsProperties awsProperties;
+    private final ObjectMapper objectMapper;
 
     // S3 설정
     private static final String S3_KEY_PREFIX = "contract/origin-images/";
@@ -58,7 +60,7 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
         log.info("Starting analysis process for user: {}", userId);
 
         // 1. 파일 목록 검증
-        validateAnalysisFiles(request.getFiles(), request.getExpectedCount());
+        validateAnalysisFiles(request.getFiles());
 
         // 2. Contract ID 생성
         String contractId = IdGenerator.generateContractId();
@@ -77,7 +79,7 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
     }
 
     @Override
-    public void validateAnalysisFiles(List<MultipartFile> files, Integer expectedCount) {
+    public void validateAnalysisFiles(List<MultipartFile> files) {
         log.debug("Validating analysis files");
 
         // 파일 목록 존재 여부 확인
@@ -91,13 +93,6 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
             log.warn("Analysis files validation failed: File count {} exceeds limit {}", 
                     files.size(), MAX_FILE_COUNT);
             throw ContractExceptions.AnalysisFileException.fileTooLarge(); // 기존 예외 재사용
-        }
-
-        // 예상 개수와 실제 개수 비교
-        if (expectedCount != null && !expectedCount.equals(files.size())) {
-            log.warn("Analysis files validation failed: Expected count {} but received {}", 
-                    expectedCount, files.size());
-            // 경고 로그만 남기고 처리 계속 (비즈니스 요구사항에 따라 변경 가능)
         }
 
         // 각 파일 개별 검증
@@ -204,21 +199,63 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
                 log.info("Step Functions sync execution completed successfully - Contract: {}, ExecutionArn: {}, Time: {}ms", 
                         contractId, executionArn, executionTime);
                 
-                // Step Functions 출력에서 결과 파싱
+                // Step Functions 출력에서 bedrockResults만 추출
                 @SuppressWarnings("unchecked")
                 Map<String, Object> stepFunctionsOutput = (Map<String, Object>) responseData.get("output");
+                log.info("Step Functions output: {}", stepFunctionsOutput);
                 
                 if (stepFunctionsOutput != null) {
-                    // 실제 분석 결과를 포함한 응답 생성
-                    return parseStepFunctionsResult(stepFunctionsOutput);
+                    // Bedrock 응답은 Lambda 호출 결과로 body에 JSON 문자열로 포함되어 있음
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> bedrockLambdaResponse = (Map<String, Object>) stepFunctionsOutput.get("bedrockResults");
+
+                    if (bedrockLambdaResponse != null && bedrockLambdaResponse.get("body") instanceof String) {
+                        String bedrockBodyString = (String) bedrockLambdaResponse.get("body");
+                        try {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> bedrockBody = objectMapper.readValue(bedrockBodyString, Map.class);
+                            
+                            // Bedrock 모델 호출 결과에 에러가 있는지 확인
+                            if ("error".equals(bedrockBody.get("status"))) {
+                                log.error("Bedrock analysis failed: {}", bedrockBody.get("error"));
+                                throw new RuntimeException("Bedrock analysis failed: " + bedrockBody.get("error"));
+                            }
+
+                            // 실제 분석 데이터 추출
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> bedrockAnalysisData = (Map<String, Object>) bedrockBody.get("data");
+
+                            if (bedrockAnalysisData != null) {
+                                // stepFunctionsOutput에 Bedrock 분석 결과를 병합하여 파싱 메서드로 전달
+                                stepFunctionsOutput.putAll(bedrockAnalysisData);
+                                log.debug("Merged data for parsing - contract: {}", contractId);
+                                log.debug("Final parsing input keys: {}", stepFunctionsOutput.keySet());
+                                return parseStepFunctionsResult(stepFunctionsOutput);
+                            } else {
+                                log.warn("No 'data' field found in Bedrock response body for contract: {}", contractId);
+                            }
+                        } catch (IOException e) {
+                            log.error("Failed to parse Bedrock response JSON for contract: {}", contractId, e);
+                            throw new RuntimeException("Failed to parse Bedrock response", e);
+                        }
+                    } else {
+                        log.warn("No bedrockResults or body found in Step Functions output for contract: {}", contractId);
+                    }
+                    
+                    // 에러가 있거나, bedrock 결과가 없는 경우 간단한 응답 반환
+                    return ContractAnalysisResponse.createSimpleResponse(
+                            contractId,
+                            request.getClientId(),
+                            request.getClientToken(),
+                            null
+                    );
                 } else {
                     log.warn("No output data received from Step Functions for contract: {}", contractId);
-                    // 출력이 없는 경우 기본 응답 반환
                     return ContractAnalysisResponse.createSimpleResponse(
                             contractId, 
                             request.getClientId(), 
-                            request.getClientToken(), 
-                            request.getExpectedCount()
+                            request.getClientToken(),
+                            null
                     );
                 }
                 
@@ -285,7 +322,7 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
         input.put("s3Keys", s3Keys);
         input.put("clientId", request.getClientId() != null ? request.getClientId() : userId); // clientId가 없으면 userId 사용
         input.put("clientToken", request.getClientToken());
-        input.put("expectedCount", request.getExpectedCount() != null ? request.getExpectedCount() : s3Keys.size());
+        // expectedCount 제거됨
         
         log.debug("Created workflow input for contract: {} - s3Keys count: {}, clientId: {}", 
                 contractId, s3Keys.size(), input.get("clientId"));
@@ -311,39 +348,38 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
     }
     
     @Override
-    public ContractAnalysisResponse parseStepFunctionsResult(Map<String, Object> stepFunctionsOutput) {
-        log.info("Parsing Step Functions result");
+    public ContractAnalysisResponse parseStepFunctionsResult(Map<String, Object> bedrockResults) {
+        log.info("Parsing bedrock analysis results");
         
         try {
-            // Step Functions 출력에서 필요한 데이터 추출
-            String contractId = (String) stepFunctionsOutput.get("contractId");
+            // bedrockResults에서 필요한 데이터 추출
+            String contractId = (String) bedrockResults.get("contractId");
             @SuppressWarnings("unchecked")
-            List<String> s3Keys = (List<String>) stepFunctionsOutput.get("s3Keys");
-            String clientId = (String) stepFunctionsOutput.get("clientId");
-            String clientToken = (String) stepFunctionsOutput.get("clientToken");
-            Integer expectedCount = (Integer) stepFunctionsOutput.get("expectedCount");
+            List<String> s3Keys = (List<String>) bedrockResults.get("s3Keys");
+            String clientId = (String) bedrockResults.get("clientId");
+            String clientToken = (String) bedrockResults.get("clientToken");
             
             // OCR 결과 파싱
-            List<OcrResult> ocrResults = parseOcrResults(stepFunctionsOutput);
+            List<OcrResult> ocrResults = parseOcrResults(bedrockResults);
             
             // Bedrock 분석 결과 파싱
-            BedrockAnalysisResult bedrockResults = parseBedrockResults(stepFunctionsOutput);
+            BedrockAnalysisResult analysisResults = parseBedrockAnalysis(bedrockResults);
             
             ContractAnalysisResponse response = ContractAnalysisResponse.builder()
                     .contractId(contractId)
                     .s3Keys(s3Keys)
                     .clientId(clientId)
                     .clientToken(clientToken)
-                    .expectedCount(expectedCount)
+                    .expectedCount(null)
                     .ocrResults(ocrResults)
-                    .bedrockResults(bedrockResults)
+                    .bedrockResults(analysisResults)
                     .build();
                     
-            log.info("Successfully parsed Step Functions result for contract: {}", contractId);
+            log.info("Successfully parsed bedrock results for contract: {}", contractId);
             return response;
             
         } catch (Exception e) {
-            log.error("Failed to parse Step Functions result: {}", e.getMessage(), e);
+            log.error("Failed to parse bedrock analysis results: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to parse analysis result", e);
         }
     }
@@ -351,21 +387,32 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
     /**
      * OCR 결과 파싱
      */
-    private List<OcrResult> parseOcrResults(Map<String, Object> stepFunctionsOutput) {
+    private List<OcrResult> parseOcrResults(Map<String, Object> bedrockResults) {
         List<OcrResult> ocrResults = new ArrayList<>();
         
         try {
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> ocrData = (List<Map<String, Object>>) stepFunctionsOutput.get("ocrResults");
+            Object ocrData = bedrockResults.get("ocrResults");
             
             if (ocrData != null) {
-                for (Map<String, Object> ocr : ocrData) {
-                    OcrResult ocrResult = OcrResult.builder()
-                            .page((Integer) ocr.get("page"))
-                            .text((String) ocr.get("text"))
-                            .s3Key((String) ocr.get("s3Key"))
-                            .build();
-                    ocrResults.add(ocrResult);
+                // ocrResults가 배열인지 단일 객체인지 확인
+                if (ocrData instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> ocrList = (List<Map<String, Object>>) ocrData;
+                    
+                    for (Map<String, Object> ocr : ocrList) {
+                        OcrResult ocrResult = createOcrResult(ocr);
+                        if (ocrResult != null) {
+                            ocrResults.add(ocrResult);
+                        }
+                    }
+                } else if (ocrData instanceof Map) {
+                    // 단일 OCR 결과인 경우
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> ocr = (Map<String, Object>) ocrData;
+                    OcrResult ocrResult = createOcrResult(ocr);
+                    if (ocrResult != null) {
+                        ocrResults.add(ocrResult);
+                    }
                 }
             }
             
@@ -379,36 +426,99 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
     }
     
     /**
+     * 개별 OCR 결과 생성
+     */
+    private OcrResult createOcrResult(Map<String, Object> ocr) {
+        try {
+            Object pageObj = ocr.get("page");
+            Integer page = null;
+            
+            // page 값 변환 (String "001" -> Integer 1)
+            if (pageObj instanceof String) {
+                try {
+                    page = Integer.parseInt((String) pageObj);
+                } catch (NumberFormatException e) {
+                    log.warn("Failed to parse page number: {}", pageObj);
+                }
+            } else if (pageObj instanceof Integer) {
+                page = (Integer) pageObj;
+            }
+            
+            return OcrResult.builder()
+                    .page(page)
+                    .text((String) ocr.get("text"))
+                    .s3Key((String) ocr.get("s3Key"))
+                    .build();
+                    
+        } catch (Exception e) {
+            log.error("Failed to create OCR result: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+    
+    /**
      * Bedrock 분석 결과 파싱
      */
-    private BedrockAnalysisResult parseBedrockResults(Map<String, Object> stepFunctionsOutput) {
+    private BedrockAnalysisResult parseBedrockAnalysis(Map<String, Object> bedrockResults) {
         try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> bedrockData = (Map<String, Object>) stepFunctionsOutput.get("bedrockResults");
-            
-            if (bedrockData == null) {
-                log.warn("No bedrock results found in Step Functions output");
+            // bedrockResults 자체가 분석 결과이므로 직접 사용
+            if (bedrockResults == null) {
+                log.warn("No bedrock results provided");
                 return null;
             }
             
             // DdobakCommentary 파싱
-            DdobakCommentary commentary = parseDdobakCommentary(bedrockData);
+            DdobakCommentary commentary = parseDdobakCommentary(bedrockResults);
             
             // ToxicClause 목록 파싱
-            List<ToxicClause> toxicClauses = parseToxicClauses(bedrockData);
+            List<ToxicClause> toxicClauses = parseToxicClauses(bedrockResults);
             
-            BedrockAnalysisResult bedrockResult = BedrockAnalysisResult.builder()
-                    .originContent((String) bedrockData.get("originContent"))
-                    .summary((String) bedrockData.get("summary"))
+            // originContent 파싱 - 배열인 경우 첫 번째 텍스트만 사용
+            String originContent = parseOriginContent(bedrockResults);
+            
+            BedrockAnalysisResult analysisResult = BedrockAnalysisResult.builder()
+                    .originContent(originContent)
+                    .summary((String) bedrockResults.get("summary"))
                     .ddobakCommentary(commentary)
                     .toxics(toxicClauses)
                     .build();
                     
             log.debug("Successfully parsed Bedrock analysis results");
-            return bedrockResult;
+            return analysisResult;
             
         } catch (Exception e) {
-            log.error("Failed to parse Bedrock results: {}", e.getMessage(), e);
+            log.error("Failed to parse Bedrock analysis: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+    
+    /**
+     * originContent 파싱 - 배열인 경우 처리
+     */
+    private String parseOriginContent(Map<String, Object> bedrockResults) {
+        try {
+            Object originContentObj = bedrockResults.get("originContent");
+            
+            if (originContentObj == null) {
+                return null;
+            }
+            
+            if (originContentObj instanceof String) {
+                return (String) originContentObj;
+            } else if (originContentObj instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> originContentList = (List<Map<String, Object>>) originContentObj;
+                
+                if (!originContentList.isEmpty()) {
+                    Map<String, Object> firstContent = originContentList.get(0);
+                    return (String) firstContent.get("text");
+                }
+            }
+            
+            return null;
+            
+        } catch (Exception e) {
+            log.error("Failed to parse origin content: {}", e.getMessage(), e);
             return null;
         }
     }
@@ -416,10 +526,10 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
     /**
      * 또박이 코멘터리 파싱
      */
-    private DdobakCommentary parseDdobakCommentary(Map<String, Object> bedrockData) {
+    private DdobakCommentary parseDdobakCommentary(Map<String, Object> bedrockResults) {
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> commentaryData = (Map<String, Object>) bedrockData.get("ddobakCommentary");
+            Map<String, Object> commentaryData = (Map<String, Object>) bedrockResults.get("ddobakCommentary");
             
             if (commentaryData == null) {
                 return null;
@@ -440,21 +550,24 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
     /**
      * 독소 조항 목록 파싱
      */
-    private List<ToxicClause> parseToxicClauses(Map<String, Object> bedrockData) {
+    private List<ToxicClause> parseToxicClauses(Map<String, Object> bedrockResults) {
         List<ToxicClause> toxicClauses = new ArrayList<>();
         
         try {
             @SuppressWarnings("unchecked")
-            List<Map<String, Object>> toxicsData = (List<Map<String, Object>>) bedrockData.get("toxics");
+            List<Map<String, Object>> toxicsData = (List<Map<String, Object>>) bedrockResults.get("toxics");
             
             if (toxicsData != null) {
                 for (Map<String, Object> toxic : toxicsData) {
+                    // warnLevel 파싱 - String을 Integer로 변환
+                    Integer warnLevel = parseWarnLevel(toxic.get("warnLevel"));
+                    
                     ToxicClause toxicClause = ToxicClause.builder()
                             .title((String) toxic.get("title"))
                             .clause((String) toxic.get("clause"))
                             .reason((String) toxic.get("reason"))
                             .reasonReference((String) toxic.get("reasonReference"))
-                            .warnLevel((Integer) toxic.get("warnLevel"))
+                            .warnLevel(warnLevel)
                             .build();
                     toxicClauses.add(toxicClause);
                 }
@@ -467,5 +580,35 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
         }
         
         return toxicClauses;
+    }
+    
+    /**
+     * warnLevel 파싱 - HIGH/MEDIUM/LOW 문자열을 정수로 변환
+     */
+    private Integer parseWarnLevel(Object warnLevelObj) {
+        if (warnLevelObj == null) {
+            return null;
+        }
+        
+        if (warnLevelObj instanceof Integer) {
+            return (Integer) warnLevelObj;
+        }
+        
+        if (warnLevelObj instanceof String) {
+            String warnLevelStr = (String) warnLevelObj;
+            switch (warnLevelStr.toUpperCase()) {
+                case "HIGH":
+                    return 3;
+                case "MEDIUM":
+                    return 2;
+                case "LOW":
+                    return 1;
+                default:
+                    log.warn("Unknown warn level: {}", warnLevelStr);
+                    return 1; // 기본값
+            }
+        }
+        
+        return null;
     }
 }

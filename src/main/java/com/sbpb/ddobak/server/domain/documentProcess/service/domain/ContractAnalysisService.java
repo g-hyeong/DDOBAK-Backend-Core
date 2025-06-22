@@ -22,7 +22,7 @@ public interface ContractAnalysisService {
     /**
      * 분석용 파일 목록 검증
      */
-    void validateAnalysisFiles(List<MultipartFile> files, Integer expectedCount);
+    void validateAnalysisFiles(List<MultipartFile> files);
     
     // ===== 향후 비동기 확장용 메서드들 =====
     

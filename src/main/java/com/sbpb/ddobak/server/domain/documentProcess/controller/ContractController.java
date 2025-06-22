@@ -37,8 +37,8 @@ public class ContractController {
         
         // 요청 정보 로깅
         int fileCount = request.getFiles() != null ? request.getFiles().size() : 0;
-        log.info("Analysis request received - userId: {}, requestId: {}, fileCount: {}, clientId: {}, expectedCount: {}", 
-                userId, requestId, fileCount, request.getClientId(), request.getExpectedCount());
+        log.info("Analysis request received - userId: {}, requestId: {}, fileCount: {}, clientId: {}", 
+                userId, requestId, fileCount, request.getClientId());
 
         ContractAnalysisResponse response = contractApplicationService.processAnalysis(request, userId);
 
