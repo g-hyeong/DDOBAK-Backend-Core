@@ -68,17 +68,12 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
         List<String> s3Keys = uploadMultipleImagesToS3(request.getFiles(), contractId);
         log.info("Images uploaded to S3: {} files for contract: {}", s3Keys.size(), contractId);
 
-        // 4. AWS Step Functions 호출
-        startAnalysisWorkflow(contractId, s3Keys, userId, request);
+        // 4. AWS Step Functions 동기 호출 (시연용 - 결과까지 대기)
+        ContractAnalysisResponse result = startAnalysisWorkflowSync(contractId, s3Keys, userId, request);
 
-        // 5. 즉시 응답 생성 (Step Functions 완료 전)
-        log.info("Analysis workflow initiated for contract: {}", contractId);
-        return ContractAnalysisResponse.createSimpleResponse(
-                contractId, 
-                request.getClientId(), 
-                request.getClientToken(), 
-                request.getExpectedCount()
-        );
+        // 5. 완료된 결과 반환
+        log.info("Analysis workflow completed for contract: {}", contractId);
+        return result;
     }
 
     @Override
@@ -184,16 +179,80 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
     }
 
     /**
-     * AWS Step Functions를 사용한 분석 워크플로우 시작
+     * AWS Step Functions를 사용한 분석 워크플로우 시작 (동기 - 시연용)
+     * 
+     * TODO: 시연 완료 후 비동기 방식으로 되돌리기
+     * - startAnalysisWorkflow 메서드의 주석 해제
+     * - 이 메서드 제거 또는 주석 처리
+     * - processAnalysis에서 ContractAnalysisResponse.createSimpleResponse 사용
      */
+    private ContractAnalysisResponse startAnalysisWorkflowSync(String contractId, List<String> s3Keys, String userId, ContractAnalysisRequest request) {
+        log.info("Starting SYNC analysis workflow for contract: {} with {} files", contractId, s3Keys.size());
+
+        try {
+            // Step Functions 입력 데이터 구성
+            Map<String, Object> workflowInput = createWorkflowInput(contractId, s3Keys, userId, request);
+
+            // Step Functions 동기 실행 (완료까지 대기)
+            ApiResponse<Map<String, Object>> response = stepFunctionsInvoker.startSyncExecution("contract_analysis", workflowInput);
+
+            if (response.isSuccess()) {
+                Map<String, Object> responseData = response.getData();
+                String executionArn = (String) responseData.get("executionArn");
+                Long executionTime = (Long) responseData.get("executionTime");
+                
+                log.info("Step Functions sync execution completed successfully - Contract: {}, ExecutionArn: {}, Time: {}ms", 
+                        contractId, executionArn, executionTime);
+                
+                // Step Functions 출력에서 결과 파싱
+                @SuppressWarnings("unchecked")
+                Map<String, Object> stepFunctionsOutput = (Map<String, Object>) responseData.get("output");
+                
+                if (stepFunctionsOutput != null) {
+                    // 실제 분석 결과를 포함한 응답 생성
+                    return parseStepFunctionsResult(stepFunctionsOutput);
+                } else {
+                    log.warn("No output data received from Step Functions for contract: {}", contractId);
+                    // 출력이 없는 경우 기본 응답 반환
+                    return ContractAnalysisResponse.createSimpleResponse(
+                            contractId, 
+                            request.getClientId(), 
+                            request.getClientToken(), 
+                            request.getExpectedCount()
+                    );
+                }
+                
+            } else {
+                log.error("Failed to execute Step Functions sync workflow - Contract: {}, Error: {}", contractId, response.getMessage());
+                throw new RuntimeException("Failed to complete analysis workflow for contract: " + contractId);
+            }
+
+        } catch (Exception e) {
+            log.error("Error executing sync analysis workflow for contract: {}", contractId, e);
+            throw new RuntimeException("Failed to complete analysis workflow", e);
+        }
+    }
+
+    /**
+     * AWS Step Functions를 사용한 분석 워크플로우 시작 (비동기 - 운영용)
+     * 
+     * TODO: 시연 완료 후 이 메서드 활성화하여 비동기로 복원
+     * 복원 방법:
+     * 1. 이 주석 블록 해제
+     * 2. startAnalysisWorkflowSync 메서드 제거 또는 주석 처리
+     * 3. processAnalysis에서 다음과 같이 변경:
+     *    - startAnalysisWorkflowSync() 호출을 startAnalysisWorkflow() 호출로 변경
+     *    - 반환을 ContractAnalysisResponse.createSimpleResponse()로 변경
+     */
+    /*
     private void startAnalysisWorkflow(String contractId, List<String> s3Keys, String userId, ContractAnalysisRequest request) {
         log.info("Starting analysis workflow for contract: {} with {} files", contractId, s3Keys.size());
 
         try {
-            // Step Functions 입력 데이터 구성 (새로운 형식)
+            // Step Functions 입력 데이터 구성
             Map<String, Object> workflowInput = createWorkflowInput(contractId, s3Keys, userId, request);
 
-            // Step Functions 실행 시작
+            // Step Functions 비동기 실행 시작
             ApiResponse<Map<String, Object>> response = stepFunctionsInvoker.startExecution("contract_analysis", workflowInput);
 
             if (response.isSuccess()) {
@@ -213,6 +272,7 @@ public class ContractAnalysisServiceImpl implements ContractAnalysisService {
             throw new RuntimeException("Failed to initiate analysis workflow", e);
         }
     }
+    */
 
     /**
      * Step Functions 워크플로우 입력 데이터 생성 (새로운 형식)

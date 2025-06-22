@@ -72,6 +72,46 @@ public class StepFunctionsClientAdapter implements StepFunctionsInvoker {
     }
 
     /**
+     * State Machine 동기 실행 (포트 인터페이스 구현)
+     * Express 워크플로우에서만 사용 가능
+     * 
+     * @param stateMachineName State Machine 이름
+     * @param input 실행 입력 데이터
+     * @return ApiResponse 형식의 응답 (완료된 결과 포함)
+     */
+    @Override
+    public ApiResponse<Map<String, Object>> startSyncExecution(String stateMachineName, Map<String, Object> input) {
+        log.info("Starting Step Functions sync execution: {} with input: {}", stateMachineName, input != null);
+        
+        Instant startTime = Instant.now();
+        
+        try {
+            // State Machine 스펙 조회
+            StateMachineSpec spec = getStateMachineSpec(stateMachineName);
+            
+            // State Machine 동기 실행 시작
+            StartSyncExecutionResponse response = startSyncStateMachineExecution(spec, input);
+            
+            // 응답 처리
+            return processSyncExecutionResponse(response, spec, startTime);
+            
+        } catch (SfnException e) {
+            log.error("AWS Step Functions service error for sync execution {}: {}", stateMachineName, e.getMessage());
+            return ApiResponse.error(ErrorCode.EXTERNAL_SERVICE_ERROR, 
+                    "Step Functions sync execution failed: " + e.getMessage());
+                    
+        } catch (ExternalServiceException e) {
+            log.error("Step Functions configuration error: {}", e.getMessage());
+            return ApiResponse.error(ErrorCode.EXTERNAL_SERVICE_ERROR, e.getMessage());
+            
+        } catch (Exception e) {
+            log.error("Unexpected error starting Step Functions sync execution {}: {}", stateMachineName, e.getMessage(), e);
+            return ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR, 
+                    "Unexpected error occurred while starting Step Functions sync execution");
+        }
+    }
+
+    /**
      * State Machine 실행 상태 조회 (포트 인터페이스 구현)
      * 
      * @param executionArn 실행 ARN
@@ -236,6 +276,31 @@ public class StepFunctionsClientAdapter implements StepFunctionsInvoker {
     }
 
     /**
+     * State Machine 동기 실행 시작
+     */
+    private StartSyncExecutionResponse startSyncStateMachineExecution(StateMachineSpec spec, Map<String, Object> input) {
+        try {
+            StartSyncExecutionRequest.Builder requestBuilder = StartSyncExecutionRequest.builder()
+                    .stateMachineArn(spec.getStateMachineArn())
+                    .name(generateExecutionName(spec.getName()));
+
+            // 입력 데이터가 있는 경우 추가
+            if (input != null) {
+                if (spec.isValidateInput()) {
+                    validateInput(input, spec);
+                }
+                String inputJson = objectMapper.writeValueAsString(input);
+                requestBuilder.input(inputJson);
+            }
+
+            return stepFunctionsClient.startSyncExecution(requestBuilder.build());
+            
+        } catch (JsonProcessingException e) {
+            throw new ExternalServiceException("Failed to serialize input to JSON: " + e.getMessage());
+        }
+    }
+
+    /**
      * 실행 시작 응답 처리
      */
     private ApiResponse<Map<String, Object>> processStartExecutionResponse(StartExecutionResponse response, 
@@ -249,6 +314,40 @@ public class StepFunctionsClientAdapter implements StepFunctionsInvoker {
         result.put("startDate", response.startDate().toString());
         result.put("stateMachineName", spec.getName());
         result.put("status", "RUNNING");
+
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * 동기 실행 응답 처리
+     */
+    private ApiResponse<Map<String, Object>> processSyncExecutionResponse(StartSyncExecutionResponse response, 
+            StateMachineSpec spec, Instant startTime) {
+        
+        long executionTime = Duration.between(startTime, Instant.now()).toMillis();
+        log.info("Step Functions sync execution completed for {} in {} ms", spec.getName(), executionTime);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("executionArn", response.executionArn());
+        result.put("startDate", response.startDate().toString());
+        result.put("stopDate", response.stopDate().toString());
+        result.put("stateMachineName", spec.getName());
+        result.put("status", response.status().toString());
+        result.put("executionTime", executionTime);
+
+        // 실행 결과 출력이 있는 경우 파싱하여 포함
+        if (response.output() != null && !response.output().isEmpty()) {
+            Map<String, Object> outputData = parseJsonToMap(response.output());
+            result.put("output", outputData);
+            log.debug("Sync execution output parsed successfully for {}", spec.getName());
+        }
+
+        // 에러가 있는 경우 포함
+        if (response.error() != null) {
+            result.put("error", response.error());
+            result.put("cause", response.cause());
+            log.warn("Sync execution completed with error for {}: {}", spec.getName(), response.error());
+        }
 
         return ApiResponse.success(result);
     }
