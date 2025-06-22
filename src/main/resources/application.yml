@@ -1,3 +1,17 @@
 spring:
   application:
-    name: main-server 
+    name: main-server
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+# AWS 설정
+aws:
+  region: ap-northeast-2
+  profile: ddobak
+  s3:
+    test-bucket: ddobak-test  # 테스트용 버킷
+    service-bucket: ${SERVICE_BUCKET:ddobak-test}  # 서비스용 버킷
+  step-functions:
+    contract-analysis-state-machine-arn: ${ANALYSIS_STEP_FUNCTIONS_ARN:arn_for_step_functions}
