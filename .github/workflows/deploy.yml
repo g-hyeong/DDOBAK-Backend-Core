@@ -33,6 +33,17 @@ jobs:
     - name: Build with Gradle
       run: ./gradlew clean bootJar -x test
       
+    - name: Copy JAR to EC2
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: ${{ secrets.EC2_PORT }}
+        source: "build/libs/main-server-0.0.1-SNAPSHOT.jar"
+        target: "/home/ec2-user/DDOBAK-Backend-Core/build/libs/"
+        strip_components: 0
+        
     - name: Deploy to EC2
       uses: appleboy/ssh-action@v1.0.3
       with:
@@ -40,38 +51,21 @@ jobs:
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
         port: ${{ secrets.EC2_PORT }}
-        timeout: 300s
+        timeout: 60s
         script: |
-          # 프로젝트 디렉토리로 이동
           cd /home/ec2-user/DDOBAK-Backend-Core
-          
-          # Git pull로 최신 코드 가져오기
-          git fetch origin
-          git reset --hard origin/dev
           
           # 기존 서버 중지
           pkill -f "java -jar" || true
           sleep 3
           
-          # 빌드 (타임아웃 설정)
-          timeout 300s ./gradlew clean bootJar -x test
-          
-          # AWS 자격 증명 확인
-          echo "=== AWS Credentials Check ==="
-          aws sts get-caller-identity
-          
           # 서버 재시작
-          nohup java -jar build/libs/main-server-0.0.1-SNAPSHOT.jar > server.log 2>&1 & disown
+          nohup java -jar build/libs/main-server-0.0.1-SNAPSHOT.jar > server.log 2>&1 &
           
           # 서버 상태 확인
-          sleep 10
-          echo "=== Server Process Check ==="
+          sleep 5
           ps aux | grep java | grep -v grep
-          
-          echo "=== Port Check ==="
           netstat -tlnp | grep 8080 || echo "Port 8080 not yet listening"
+          tail -3 server.log
           
-          echo "=== Server Log Check ==="
-          tail -5 server.log
-          
-          echo "Github Actions를 통한 EC2 배포 성공!" 
+          echo "Deployment completed successfully!" 
