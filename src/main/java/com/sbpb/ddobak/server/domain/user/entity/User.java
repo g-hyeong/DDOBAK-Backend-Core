@@ -128,6 +128,14 @@ public class User {
     }
 
     /**
+     * 이메일 업데이트
+     */
+    public void updateEmail(String email) {
+        this.email = email;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    /**
      * 이메일 검증 완료 처리
      */
     public void verifyEmail() {
