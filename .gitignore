@@ -90,3 +90,5 @@ coverage/
 *.tar.gz
 *.rar
 !gradle/wrapper/gradle-wrapper.jar
+.env
+*.env
