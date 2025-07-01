@@ -36,7 +36,6 @@ public class UserService {
 
         // 사용자 생성
         User user = User.builder()
-            .id(IdGenerator.generateUserId())
             .email(request.getEmail())
             .name(request.getName())
             .nickname(request.getNickname())
